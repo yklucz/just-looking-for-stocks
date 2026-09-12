@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "selection_policy": "Existing final expanding-fold XGBoost artifacts; selected by latest training period, not score. Stale research candidates, no promotion claim.",
+  "bindings": {
+    "AAPL:xgboost": {
+      "artifact": "artifacts/AAPL/1d/h5/walk_forward/20260910T081655_ca5887a2/models/fold_008/xgboost",
+      "fingerprint": "9e515bcdafd1eb0d1845f25b2da736aa0d7bc7ef8ba477a5fd8709c75b120025",
+      "model_sha256": "2288010f3545ce2c023bf73dffac32d306dd0811b7dc1657a3dd79c62d6eadf9"
+    },
+    "SPY:xgboost": {
+      "artifact": "artifacts/SPY/1d/h5/walk_forward/20260910T081700_fdf71a33/models/fold_008/xgboost",
+      "fingerprint": "c4d8df98f249391cac015b68a0e972f94c8faa97c4aefa170180e453516611ee",
+      "model_sha256": "36d962d1d079004b214a0c8e292915ff7479ccc855f161a54e834c4b3d0b4b8e"
+    },
+    "NVDA:xgboost": {
+      "artifact": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/dashboard/NVDA/7225c555b4d74c01a39f5fa96bdd634e",
+      "fingerprint": "113abb46bebdaaee734a6949f70eff7f7c58735cf441726d2197a29b33c2e63f",
+      "model_sha256": "333411af9f7fd842302bfa7409665caaffb891e452a009662944c7234bd3ca47"
+    },
+    "AAPL:xgboost_regressor": {
+      "artifact": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/dashboard/AAPL/69154a719f944cccbcbefa765039a13d",
+      "fingerprint": "a6d2f996c11f02e3ffb16965648d2bbfdfdb1f11e29351ddaaff1a94d3a289e3",
+      "model_sha256": "d92183d738ad38490d62a3e3f2b864f227adc778a71f1a09bf29e68c1d6c1c9f"
+    },
+    "NVDA:xgboost_regressor": {
+      "artifact": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/dashboard/NVDA/5a307c81c28d4b18a8ac9dc493c626cc",
+      "fingerprint": "a7932a3b8893dbf543b7fa25b2d1e823bd40e754c26c817972eb088698b03661",
+      "model_sha256": "b5d832564db8cf7ae201afb4aa2aba8985daec9594e1ba8ad992d97e488cfbaf"
+    },
+    "TSLA:xgboost": {
+      "artifact": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/dashboard/TSLA/1f778ab18a3b42e5a78a1e9214a6a9b5",
+      "fingerprint": "bae066d3bf84542503380ff934b398117ff3d072a9104ea05c44538652cfca0a",
+      "model_sha256": "dbccee71ed8d3ceeb0879b4b1d5b7214386a1897411f9618de4f2a3113062ab2"
+    },
+    "TSLA:xgboost_regressor": {
+      "artifact": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/dashboard/TSLA/8d7346cfb8dc4e6cb1c7c1f42d0dc787",
+      "fingerprint": "3d0700babc35637a6a0cbf1c05b641563b24f04f820d2d0a523d8ec2f862cfa0",
+      "model_sha256": "2541555d1161a1b043b0f8de61b1c6c6327bf5f625e14aa4c90c972fa7728f50"
+    }
+  }
+}

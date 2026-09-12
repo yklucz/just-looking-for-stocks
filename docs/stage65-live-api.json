@@ -1,0 +1,55 @@
+{
+  "AAPL": {
+    "status": 200,
+    "response": {
+      "generated_at": "2026-09-11T01:43:31.710058+00:00",
+      "interval": "1d",
+      "limitations": "Uncalibrated research estimate. Incremental economic value is not established. LONG/FLAT is not a trade execution.",
+      "market": {
+        "age_days": 1,
+        "completed_candles_only": true,
+        "price_convention": "auto_adjusted_ohlc",
+        "stale": false
+      },
+      "model": {
+        "age_days": 1011,
+        "stale": true,
+        "trained_until": "2023-12-04T00:00:00-05:00",
+        "type": "xgboost",
+        "validated_until": "2024-12-02T00:00:00-05:00",
+        "version": "9e515bcdafd1eb0d1845f25b2da736aa0d7bc7ef8ba477a5fd8709c75b120025"
+      },
+      "prediction": {
+        "calibrated": false,
+        "event_threshold": 0.002,
+        "horizon": 5,
+        "probability_up": 0.48365405201911926,
+        "target_definition": "log(Close[t+5] / Close[t]) > 0.002",
+        "task": "binary_return_event"
+      },
+      "schema_version": "prediction-v2",
+      "signal": {
+        "action": "FLAT",
+        "decision_threshold": 0.5,
+        "mode": "research"
+      },
+      "symbol": "AAPL",
+      "ticker": "AAPL",
+      "timestamp": "2026-09-09T00:00:00-04:00"
+    }
+  },
+  "SPY": {
+    "status": 503,
+    "response": {
+      "code": "PREDICTION_UNAVAILABLE",
+      "error": "Invalid OHLC: Close outside Low/High"
+    }
+  },
+  "MSFT": {
+    "status": 503,
+    "response": {
+      "code": "MODEL_NOT_AVAILABLE",
+      "error": "No bound, compatible saved XGBoost artifact for MSFT. Train offline and bind an artifact."
+    }
+  }
+}

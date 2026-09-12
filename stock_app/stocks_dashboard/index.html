@@ -3,163 +3,866 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Just looking for stocks</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+  <meta name="theme-color" content="#F7F6F3">
+
+  <title>Market notebook — Just Looking for Stocks</title>
+
+  <script src="preferences.js"></script>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+    integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+    crossorigin="anonymous"
+  ></script>
+
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"
+    integrity="sha512-UXumZrZNiOwnTcZSHLOfcTs0aos2MzBWHXOHOuB0J/R44QB0dwY5JgfbvljXcklVf65Gc4El6RjZ+lnwd2az2g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
+
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"
+    integrity="sha512-wUYbRPLV5zs6IqvWd88HIqZU/b8TBx+I8LEioQ/UC0t5EMCLApqhIAnUg7EsAzdbhhdgW07TqYDdH3QEXRcPOQ=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
+
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+  <a class="skip-link" href="#workspace">
+    Skip to market workspace
+  </a>
+
   <div class="page">
-    <header>
-      <div class="title">Just looking for stocks</div>
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <div class="muted">Simple tables, fresh data each reload.</div>
-        <div class="muted caution">Predictions are experimental — use with caution.</div>
-        <button id="themeToggle" class="ghost-btn" type="button">Toggle theme</button>
+    <header class="masthead">
+      <a
+        class="brand"
+        href="/"
+        aria-label="Just Looking for Stocks home"
+      >
+        <span class="brand-mark" aria-hidden="true">jl.</span>
+        <span>
+          Just looking<br>
+          for stocks
+        </span>
+      </a>
+
+      <div class="masthead-actions">
+        <span class="badge">
+          Research workspace
+        </span>
+
+        <button
+          id="themeToggle"
+          class="ghost-btn"
+          type="button"
+          aria-pressed="false"
+        >
+          Dark mode
+        </button>
       </div>
     </header>
 
-    <div class="panel">
-      <div class="controls">
-        <form id="searchForm" class="search-box">
-          <input id="tickerInput" type="text" placeholder="e.g., AAPL or apple" list="symbolList" />
-          <datalist id="symbolList"></datalist>
-          <button class="primary" type="submit">Load</button>
+    <main id="workspace">
+
+      <!-- Intro -->
+      <section
+        class="intro reveal"
+        aria-labelledby="page-title"
+      >
+        <div>
+          <p class="eyebrow">
+            Observe. Question. Compare.
+          </p>
+
+          <h1 id="page-title">
+            Market notebook<span class="title-dot">.</span>
+          </h1>
+
+          <p class="intro-copy">
+            A closer look at price, context, and model estimates.
+          </p>
+        </div>
+
+        <div class="intro-note">
+          <span class="section-number">
+            01 / RESEARCH
+          </span>
+
+          <p>
+            Historical data.<br>
+            Measured expectations.
+          </p>
+        </div>
+      </section>
+
+      <!-- Search -->
+      <section
+        class="search-panel reveal"
+        aria-label="Find a stock"
+      >
+        <form
+          id="searchForm"
+          class="search-box"
+        >
+          <label for="tickerInput">
+            Explore a company
+          </label>
+
+          <div class="search-field">
+            <input
+              id="tickerInput"
+              type="text"
+              placeholder="Company name or ticker"
+              list="symbolList"
+              autocomplete="off"
+              spellcheck="false"
+            >
+
+            <datalist id="symbolList"></datalist>
+
+            <button
+              class="primary"
+              type="submit"
+            >
+              Explore
+              <span aria-hidden="true">↗</span>
+            </button>
+          </div>
         </form>
-        <div class="inline-controls">
-          <div class="range-tabs" id="rangeTabs">
-            <button class="range-btn" data-range="1d">1d</button>
-            <button class="range-btn" data-range="1w">1w</button>
-            <button class="range-btn active" data-range="1m">1m</button>
-            <button class="range-btn" data-range="3m">3m</button>
-            <button class="range-btn" data-range="6m">6m</button>
-            <button class="range-btn" data-range="ytd">YTD</button>
-            <button class="range-btn" data-range="1y">1y</button>
-            <button class="range-btn" data-range="2y">2y</button>
-            <button class="range-btn" data-range="5y">5y</button>
-            <button class="range-btn" data-range="10y">10y</button>
-            <button class="range-btn" data-range="all">All</button>
-          </div>
-          <select id="intervalSelect" class="interval-select">
-            <option value="auto" selected>Auto</option>
-            <option value="1m">1 min</option>
-            <option value="2m">2 mins</option>
-            <option value="5m">5 mins</option>
-            <option value="15m">15 mins</option>
-            <option value="30m">30 mins</option>
-            <option value="1h">1 hour</option>
-            <option value="1d">1 day</option>
-            <option value="5d">5 days</option>
-            <option value="1wk">1 week</option>
-            <option value="1mo">1 month</option>
-            <option value="3mo">3 months</option>
-          </select>
-          <select id="priceFieldSelect" class="interval-select">
-            <option value="close" selected>Close</option>
-            <option value="open">Open</option>
-            <option value="high">High</option>
-            <option value="low">Low</option>
-            <option value="current">Current</option>
-          </select>
-        </div>
-      </div>
-      <div id="quickPicks" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px;"></div>
-      <div id="error" class="error" style="display:none;"></div>
 
-      <div class="grid">
-        <div>
-          <div class="muted">Stock info</div>
-          <table>
-            <tbody>
-              <tr><th>Symbol</th><td id="infoSymbol">—</td></tr>
-              <tr><th>Name</th><td id="infoName">—</td></tr>
-              <tr><th>Sector</th><td id="infoSector">—</td></tr>
-              <tr><th>Industry</th><td id="infoIndustry">—</td></tr>
-              <tr><th>Current Price</th><td id="infoPrice">—</td></tr>
-              <tr><th>Market Cap</th><td id="infoMarketCap">—</td></tr>
-              <tr><th>52W Low / High</th><td id="info52w">—</td></tr>
-              <tr><th>Website</th><td id="infoWebsite">—</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div>
-          <div class="muted">Prediction summary</div>
-          <table>
-            <tbody>
-              <tr><th id="predictionLabel">Next predicted close</th><td id="predictionValue">—</td></tr>
-              <tr><th>Forecast at</th><td id="predictionTime">—</td></tr>
-              <tr><th>Predicted close (session)</th><td id="predictionCloseValue">—</td></tr>
-              <tr><th>RMSE (USD)</th><td id="rmseValue">—</td></tr>
-              <tr><th>Range in view</th><td id="priceMeta">—</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <div class="quick-picks-wrap">
+          <span class="eyebrow">
+            Market list
+          </span>
 
-      <div style="margin-top:10px;">
-        <div class="chart-header">
-          <div class="muted" id="priceChartLabel">Price chart (Close)</div>
-          <div class="hint">Scroll/pinch to zoom • Drag to pan • Shift+drag to box-zoom • Double-click/reset</div>
-          <button id="resetPriceZoom" class="ghost-btn" type="button">Reset zoom</button>
+          <div
+            id="quickPicks"
+            class="quick-picks"
+          ></div>
         </div>
-        <div class="chart-area chart-shell">
-          <div class="chart-loader" data-chart-loader="price">
-            <div class="chart-loader__spinner"></div>
+      </section>
+
+      <div
+        id="error"
+        class="error"
+        role="alert"
+        style="display:none;"
+      ></div>
+
+      <div class="workspace-grid">
+
+        <!-- Main market panel -->
+        <section
+          class="panel market-panel reveal"
+          aria-labelledby="infoName"
+        >
+          <div class="security-header">
             <div>
-              <div class="chart-loader__title">Preparing price chart…</div>
-              <div class="chart-loader__message">Fetching latest candles</div>
+              <div class="security-meta">
+                <span
+                  id="infoSymbol"
+                  class="badge badge-neutral"
+                >
+                  —
+                </span>
+
+                <span class="eyebrow">
+                  Market overview
+                </span>
+              </div>
+
+              <h2 id="infoName">
+                Loading company…
+              </h2>
+            </div>
+
+            <div class="quote">
+              <span class="eyebrow">
+                Current price · USD
+              </span>
+
+              <span id="infoPrice">
+                —
+              </span>
             </div>
           </div>
-          <canvas id="priceChart"></canvas>
-        </div>
-      </div>
 
-      <div style="margin-top:10px;">
-        <div class="chart-header">
-          <div class="muted">Validation (Actual vs Predicted)</div>
-          <div class="hint">Scroll/pinch to zoom • Drag to pan • Shift+drag to box-zoom • Double-click/reset</div>
-          <button id="resetPredZoom" class="ghost-btn" type="button">Reset zoom</button>
-        </div>
-        <div class="chart-area chart-shell">
-          <div class="chart-loader" data-chart-loader="pred">
-            <div class="chart-loader__spinner"></div>
-            <div>
-              <div class="chart-loader__title">Preparing prediction chart…</div>
-              <div class="chart-loader__message">Training model and forecasting next price</div>
+          <!-- Chart controls -->
+          <div class="chart-toolbar">
+            <div
+              class="range-tabs"
+              id="rangeTabs"
+            >
+              <button
+                class="range-btn"
+                data-range="1d"
+                aria-pressed="false"
+              >
+                1D
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="1w"
+                aria-pressed="false"
+              >
+                1W
+              </button>
+
+              <button
+                class="range-btn active"
+                data-range="1m"
+                aria-pressed="true"
+              >
+                1M
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="3m"
+                aria-pressed="false"
+              >
+                3M
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="6m"
+                aria-pressed="false"
+              >
+                6M
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="ytd"
+                aria-pressed="false"
+              >
+                YTD
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="1y"
+                aria-pressed="false"
+              >
+                1Y
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="2y"
+                aria-pressed="false"
+              >
+                2Y
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="5y"
+                aria-pressed="false"
+              >
+                5Y
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="10y"
+                aria-pressed="false"
+              >
+                10Y
+              </button>
+
+              <button
+                class="range-btn"
+                data-range="all"
+                aria-pressed="false"
+              >
+                All
+              </button>
+            </div>
+
+            <!-- Inline controls -->
+            <div class="inline-controls">
+
+              <label for="chartTypeSelect">
+                Chart
+
+                <select id="chartTypeSelect">
+                  <option value="line">
+                    Line
+                  </option>
+
+                  <option value="candle">
+                    Candlesticks
+                  </option>
+                </select>
+              </label>
+
+              <label for="intervalSelect">
+                Interval
+
+                <select id="intervalSelect">
+                  <option
+                    value="auto"
+                    selected
+                  >
+                    Auto
+                  </option>
+
+                  <option value="1m">
+                    1 minute
+                  </option>
+
+                  <option value="2m">
+                    2 minutes
+                  </option>
+
+                  <option value="5m">
+                    5 minutes
+                  </option>
+
+                  <option value="15m">
+                    15 minutes
+                  </option>
+
+                  <option value="30m">
+                    30 minutes
+                  </option>
+
+                  <option value="1h">
+                    1 hour
+                  </option>
+
+                  <option value="1d">
+                    1 day
+                  </option>
+
+                  <option value="5d">
+                    5 days
+                  </option>
+
+                  <option value="1wk">
+                    1 week
+                  </option>
+
+                  <option value="1mo">
+                    1 month
+                  </option>
+
+                  <option value="3mo">
+                    3 months
+                  </option>
+                </select>
+              </label>
+
+              <label for="priceFieldSelect">
+                Price
+
+                <select id="priceFieldSelect">
+                  <option
+                    value="close"
+                    selected
+                  >
+                    Close
+                  </option>
+
+                  <option value="open">
+                    Open
+                  </option>
+
+                  <option value="high">
+                    High
+                  </option>
+
+                  <option value="low">
+                    Low
+                  </option>
+
+                  <option value="current">
+                    Current
+                  </option>
+                </select>
+              </label>
+
+              <label for="overlaySelect">
+                Overlay
+
+                <select id="overlaySelect">
+                  <option
+                    value="both"
+                    selected
+                  >
+                    Both estimates
+                  </option>
+
+                  <option value="forecast">
+                    Price forecast
+                  </option>
+
+                  <option value="probability">
+                    Probability
+                  </option>
+
+                  <option value="none">
+                    Price only
+                  </option>
+                </select>
+              </label>
+
+              <label for="futureBarsSelect">
+                Right space
+
+                <select id="futureBarsSelect">
+                  <option value="5">
+                    5 slots
+                  </option>
+
+                  <option
+                    value="10"
+                    selected
+                  >
+                    10 slots
+                  </option>
+
+                  <option value="20">
+                    20 slots
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <!-- Refresh -->
+            <div class="refresh-controls">
+              <label>
+                <input
+                  id="autoRefresh"
+                  type="checkbox"
+                  checked
+                >
+                Auto-refresh · 30s
+              </label>
+
+              <button
+                id="refreshNow"
+                class="text-btn"
+                type="button"
+              >
+                Refresh now
+              </button>
+
+              <output
+                id="refreshStatus"
+                aria-live="polite"
+              >
+                Waiting for data
+              </output>
             </div>
           </div>
-          <canvas id="predChart"></canvas>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;">
-          <div class="muted" id="predRowsMeta">Summary view</div>
-          <button id="togglePredRows" class="ghost-btn" type="button">Show all</button>
-        </div>
-        <table id="predTable">
-          <thead>
-            <tr><th>Date</th><th id="predActualHeader">Actual Close</th><th>Predicted</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+
+          <!-- Chart heading -->
+          <div class="chart-header">
+            <h3 id="priceChartLabel">
+              Price chart (Close)
+            </h3>
+
+            <div class="chart-navigation">
+              <button
+                id="zoomOut"
+                type="button"
+                aria-label="Zoom out"
+              >
+                −
+              </button>
+
+              <button
+                id="zoomIn"
+                type="button"
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+
+              <button
+                id="maxPriceZoom"
+                class="text-btn"
+                type="button"
+                title="Focus on the latest two candles and future space"
+              >
+                Max zoom
+              </button>
+
+              <button
+                id="fitPriceZoom"
+                class="text-btn"
+                type="button"
+              >
+                Fit all
+              </button>
+
+              <button
+                id="resetPriceZoom"
+                class="text-btn"
+                type="button"
+              >
+                Latest
+              </button>
+            </div>
+          </div>
+
+          <!-- Chart -->
+          <div class="chart-area chart-shell">
+
+            <div
+              class="chart-loader"
+              data-chart-loader="price"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <div
+                class="chart-loader__spinner"
+                aria-hidden="true"
+              ></div>
+
+              <div>
+                <div class="chart-loader__title">
+                  Preparing price chart…
+                </div>
+
+                <div class="chart-loader__message">
+                  Fetching latest candles
+                </div>
+              </div>
+            </div>
+
+            <canvas
+              id="priceChart"
+              aria-label="Historical prices for the selected stock. Values are available in the price history table below."
+            >
+              Historical prices for the selected stock.
+              See the price history table below for the underlying values.
+            </canvas>
+          </div>
+
+          <!-- Dynamic overlay status -->
+          <p
+            id="overlayStatus"
+            class="model-note"
+            aria-live="polite"
+          ></p>
+
+          <div class="chart-caption">
+            <span id="priceMeta">
+              Loading history…
+            </span>
+
+            <span id="chartViewStatus"></span>
+
+            <span>
+              Scroll to zoom · Drag to pan
+            </span>
+          </div>
+        </section>
+
+        <!-- Prediction panel -->
+        <aside
+          class="panel prediction-panel reveal"
+          aria-labelledby="estimate-title"
+        >
+          <div class="panel-heading">
+            <span class="eyebrow">
+              Model estimate
+            </span>
+
+            <span class="badge badge-yellow">
+              Experimental
+            </span>
+          </div>
+
+          <h2 id="estimate-title">
+            What might <br>
+            come next?
+          </h2>
+
+          <div class="probability-block">
+            <span
+              id="predictionValue"
+              class="probability"
+            >
+              —
+            </span>
+
+            <p>
+              Model probability of the return event
+            </p>
+          </div>
+
+          <dl class="prediction-facts">
+            <div>
+              <dt>
+                Target
+              </dt>
+
+              <dd id="predictionTarget">
+                —
+              </dd>
+            </div>
+
+            <div>
+              <dt>
+                Horizon
+              </dt>
+
+              <dd id="predictionHorizon">
+                —
+              </dd>
+            </div>
+
+            <div class="signal-row">
+              <dt>
+                Research signal
+              </dt>
+
+              <dd id="predictionSignal">
+                —
+              </dd>
+            </div>
+          </dl>
+
+          <p
+            class="model-note"
+            id="predictionStatus"
+            aria-live="polite"
+          >
+            Loading saved model…
+          </p>
+
+          <details class="model-details">
+            <summary>
+              Model details
+              <span aria-hidden="true">+</span>
+            </summary>
+
+            <dl class="prediction-facts">
+              <div>
+                <dt>
+                  Model
+                </dt>
+
+                <dd id="predictionModel">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Training labels through
+                </dt>
+
+                <dd id="predictionTrained">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Version
+                </dt>
+
+                <dd id="predictionVersion">
+                  —
+                </dd>
+              </div>
+
+              <div>
+                <dt>
+                  Completed candle
+                </dt>
+
+                <dd id="predictionTime">
+                  —
+                </dd>
+              </div>
+            </dl>
+          </details>
+        </aside>
       </div>
 
-      <div style="margin-top:10px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-          <div class="muted">History (Open/High/Low/Close/Volume)</div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <div class="muted" id="historyRowsMeta">Summary view</div>
-            <button id="toggleHistoryRows" class="ghost-btn" type="button">Show all</button>
+      <!-- Company context -->
+      <section
+        class="company-strip reveal"
+        aria-label="Company context"
+      >
+        <div>
+          <span class="eyebrow">
+            Sector
+          </span>
+
+          <p id="infoSector">
+            —
+          </p>
+        </div>
+
+        <div>
+          <span class="eyebrow">
+            Industry
+          </span>
+
+          <p id="infoIndustry">
+            —
+          </p>
+        </div>
+
+        <div>
+          <span class="eyebrow">
+            Market cap · USD
+          </span>
+
+          <p id="infoMarketCap">
+            —
+          </p>
+        </div>
+
+        <div>
+          <span class="eyebrow">
+            52-week low / high
+          </span>
+
+          <p id="info52w">
+            —
+          </p>
+        </div>
+
+        <div>
+          <span class="eyebrow">
+            Company website
+          </span>
+
+          <p id="infoWebsite">
+            —
+          </p>
+        </div>
+      </section>
+
+      <!-- Price history -->
+      <section
+        class="panel history-panel reveal"
+        aria-labelledby="history-title"
+      >
+        <div class="history-heading">
+          <div>
+            <p class="eyebrow">
+              The underlying observations
+            </p>
+
+            <h2 id="history-title">
+              Price history
+            </h2>
+          </div>
+
+          <div class="history-actions">
+            <span
+              id="historyRowsMeta"
+              class="muted"
+            >
+              Summary view
+            </span>
+
+            <button
+              id="toggleHistoryRows"
+              class="ghost-btn"
+              type="button"
+              aria-expanded="false"
+            >
+              Show all
+            </button>
           </div>
         </div>
-        <table id="historyTable">
-          <thead>
-            <tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
+
+        <section
+          class="table-scroll"
+          aria-label="Scrollable price history"
+        >
+          <table id="historyTable">
+            <caption class="sr-only">
+              Historical open, high, low, close and volume
+              for the selected stock, newest first
+            </caption>
+
+            <thead>
+              <tr>
+                <th scope="col">
+                  Date
+                </th>
+
+                <th scope="col">
+                  Open
+                </th>
+
+                <th scope="col">
+                  High
+                </th>
+
+                <th scope="col">
+                  Low
+                </th>
+
+                <th scope="col">
+                  Close
+                </th>
+
+                <th scope="col">
+                  Volume
+                </th>
+              </tr>
+            </thead>
+
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+
+      <!-- Research disclaimer -->
+      <section
+        class="research-note reveal"
+        aria-label="Research limitations"
+      >
+        <span class="section-number">
+          A NOTE ON INTERPRETATION
+        </span>
+
+        <p>
+          Probabilities are estimates, not promises.
+          A low probability of exceeding the target does not imply
+          a bearish forecast. Prediction uses daily Close returns
+          independently of the chart controls. No orders are executed.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span>
+        Just looking for stocks
+      </span>
+
+      <span>
+        Yahoo Finance data · Research &amp; paper trading
+      </span>
+
+      <a href="#workspace">
+        Back to top ↑
+      </a>
+    </footer>
   </div>
 
-  <script type="module" src="script.js"></script>
+  <script
+    type="module"
+    src="script.js"
+  ></script>
 </body>
 </html>
