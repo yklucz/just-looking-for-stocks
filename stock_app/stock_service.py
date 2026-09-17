@@ -197,13 +197,15 @@ def search_symbols(query: str, limit: int = 15) -> list[dict]:
 def get_stock_info(ticker: str) -> dict:
     stock = yf.Ticker(ticker)
     info = stock.info or {}
+    quote_time = pd.to_datetime(info.get("regularMarketTime"), unit="s", utc=True, errors="coerce")
     return {
         "symbol": ticker,
         "name": info.get("longName", ticker),
         "sector": info.get("sector", "N/A"),
         "industry": info.get("industry", "N/A"),
         "marketCap": info.get("marketCap"),
-        "currentPrice": info.get("currentPrice"),
+        "currentPrice": info.get("regularMarketPrice") or info.get("currentPrice"),
+        "quoteTimestamp": quote_time.isoformat() if pd.notna(quote_time) else None,
         "fiftyTwoWeekHigh": info.get("fiftyTwoWeekHigh"),
         "fiftyTwoWeekLow": info.get("fiftyTwoWeekLow"),
         "website": info.get("website"),
@@ -276,8 +278,13 @@ def get_history(
         df = stock.history(interval=eff_interval, timeout=YF_TIMEOUT, **kwargs)
     if df.empty:
         try:
-            # Fall back to a longer daily window to avoid empty responses.
-            df = _get_full_history(ticker).reset_index()
+            # Daily fallback still respects the user's selected date window.
+            df = _get_full_history(ticker)
+            if range_key != "all":
+                cutoff = pd.Timestamp.now(tz=df.index.tz).normalize() - pd.Timedelta(days=days)
+                df = df.loc[df.index >= cutoff]
+            if df.empty:
+                raise ValueError("No daily data in the selected range")
             eff_interval = "1d"
         except Exception as exc:
             raise ValueError("No data available for this ticker and range.") from exc

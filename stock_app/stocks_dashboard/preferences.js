@@ -1,8 +1,8 @@
 // Read before styles load so a saved dark theme never flashes light on reload.
 globalThis.StockPreferences = (() => {
   const key = 'stock-dashboard.preferences.v1';
-  const defaults = { ticker: 'AAPL', range: '1m', interval: 'auto', priceField: 'close',
-    theme: 'light', overlay: 'both', chartType: 'line', autoRefresh: true,
+  const defaults = { ticker: 'AAPL', range: '1m', interval: 'auto', priceField: 'current',
+    theme: 'light', overlay: 'none', chartType: 'line', autoRefresh: true,
     showFullHistory: false, futureBars: 10, visibleBars: 60 };
   const choices = {
     range: ['1d', '1w', '1m', '3m', '6m', 'ytd', '1y', '2y', '5y', '10y', 'all'],

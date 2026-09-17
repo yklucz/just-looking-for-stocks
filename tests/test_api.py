@@ -171,7 +171,34 @@ def test_no_tensorflow_runtime_imports_or_installation():
 def test_frontend_has_modern_contract_only():
     js = Path('stock_app/stocks_dashboard/script.js').read_text()
     html = Path('stock_app/stocks_dashboard/index.html').read_text()
-    for old in ('forecast_path','rmse','predicted_next_price','predicted_next_close','predChart','predTable'):
+    for old in ('forecast_path','predicted_next_price','predicted_next_close','predChart','predTable'):
         assert old not in js and old not in html
     for field in ('probability_up','event_threshold','trained_until'): assert field in js
     for element in ('priceChart','historyTable','predictionStatus','predictionValue'): assert element in html
+
+
+def test_quote_falls_back_to_regular_market_price_and_retains_time(monkeypatch):
+    from stock_app import stock_service
+    class Ticker:
+        info = {'regularMarketPrice': 110.5, 'regularMarketTime': 1788984000}
+    monkeypatch.setattr(stock_service.yf, 'Ticker', lambda ticker: Ticker())
+    info = stock_service.get_stock_info('TEST')
+    assert info['currentPrice'] == 110.5
+    assert info['quoteTimestamp'] == '2026-09-09T20:00:00+00:00'
+
+
+def test_daily_fallback_respects_selected_range(monkeypatch):
+    from stock_app import stock_service
+    today = pd.Timestamp.now(tz='UTC').normalize()
+    dates = pd.date_range(end=today, periods=100, tz='UTC', name='Date')
+    raw = pd.DataFrame({'Open':100.,'High':101.,'Low':99.,'Close':100.,'Volume':10},index=dates)
+    class EmptyTicker:
+        def history(self, **kwargs):
+            return pd.DataFrame()
+    monkeypatch.setattr(stock_service, 'HISTORY_CACHE', stock_service.OrderedDict())
+    monkeypatch.setattr(stock_service.yf, 'Ticker', lambda ticker: EmptyTicker())
+    monkeypatch.setattr(stock_service, '_get_full_history', lambda ticker: raw.copy())
+    frame, interval = stock_service.get_history('TEST',30,range_key='1m',interval='1m')
+    assert interval == '1d'
+    assert len(frame) == 31
+    assert frame.Date.iloc[0] == (today-pd.Timedelta(days=30)).strftime('%Y-%m-%d')

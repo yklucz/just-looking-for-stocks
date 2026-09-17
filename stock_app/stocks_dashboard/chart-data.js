@@ -7,6 +7,7 @@ export function dateLabel(value) {
 }
 
 export function axisLabel(label) {
+  if (label.endsWith(' completed Close')) return 'Daily Close';
   if (/^\d{4}\/\d{2}\/\d{2}/.test(label)) return label.includes(' ') ? label.slice(-5) : label.slice(5);
   if (/^\d{4}-/.test(label)) return `+${label.match(/\+(\d+)/)?.[1] || ''}D est.`;
   return label.replace(' sessions', 'D').replace(' min', 'm').replace(' wk', 'W').replace(' mo', 'M');
@@ -30,7 +31,7 @@ function nullSlots(count) {
 }
 
 function observedValue(point, candle, field) {
-  if (candle && !point.forecastAnchor && !validCandle(point)) return null;
+  if (point.forecastAnchor || (candle && !validCandle(point))) return null;
   if (!Number.isFinite(point[field])) return null;
   return point[field];
 }
@@ -43,23 +44,29 @@ export function buildChartData(prices, settings, predictions, colors) {
   const forecast = predictions?.forecast;
   let originIndex = -1, targetOffset = null;
   const wantsForecast = ['both', 'forecast'].includes(settings.overlay);
-  const validForecast = forecast && Number.isInteger(forecast.horizon) && forecast.horizon > 0
+  const validForecast = forecast && typeof forecast.origin === 'string'
+    && /^\d{4}-\d{2}-\d{2}(?:T|$)/.test(forecast.origin) && Number.isInteger(forecast.horizon) && forecast.horizon > 0
     && Number.isFinite(forecast.origin_close) && forecast.origin_close > 0
     && Number.isFinite(forecast.estimated_price) && forecast.estimated_price > 0;
   const notes = [];
   if (wantsForecast && field !== 'Close') notes.push('The estimate is a future Close. Choose Close or Candlesticks to display it.');
   if (wantsForecast && field === 'Close' && validForecast && points.length) {
     const originDay = forecast.origin.slice(0, 10);
-    originIndex = points.findLastIndex(p => p.Date.slice(0, 10) === originDay);
+    originIndex = ['1d', 'auto'].includes(settings.interval)
+      ? points.findLastIndex(p => p.Date.slice(0, 10) === originDay) : -1;
     if (originIndex < 0) {
       // This is the observed completed Close supplied by the model service,
       // not an invented earlier candle. No OHLC body is drawn for this anchor.
-      points.push({ Date: originDay, Close: forecast.origin_close, forecastAnchor: true });
+      points.push({ Date: `${originDay} 23:59`, Close: forecast.origin_close, forecastAnchor: true });
       points.sort((a, b) => a.Date.localeCompare(b.Date));
       originIndex = points.findIndex(p => p.forecastAnchor);
     }
-    const laterSessions = new Set(points.slice(originIndex + 1).map(p => p.Date.slice(0, 10))).size;
-    if (laterSessions >= forecast.horizon) {
+    const laterSessions = new Set(points.slice(originIndex + 1).filter(p => !p.forecastAnchor).map(p => p.Date.slice(0, 10))).size;
+    if (['5d', '1wk', '1mo', '3mo'].includes(settings.interval)) {
+      notes.push('Switch to a daily or intraday interval for the five-session price connector; aggregated candles use a different time scale.');
+      points.splice(originIndex, 1);
+      originIndex = -1;
+    } else if (laterSessions >= forecast.horizon) {
       notes.push('The saved estimate horizon is already in the observed history; no future connector is shown.');
       originIndex = -1;
     } else if (settings.interval === '1d' || settings.interval === 'auto') {
@@ -67,14 +74,14 @@ export function buildChartData(prices, settings, predictions, colors) {
     } else {
       // Daily model horizon and an intraday/weekly chart have different clocks.
       // Use an explicitly labelled horizon checkpoint, never fake minute bars.
-      targetOffset = settings.futureBars;
-      notes.push('The final future slot is a daily-horizon checkpoint; spacing to it is schematic.');
+      targetOffset = forecast.horizon - laterSessions;
+      notes.push('The daily-horizon checkpoint has schematic spacing, independent of the blank right-space setting.');
     }
   }
   const historyCount = points.length;
-  const futureCount = Math.max(settings.futureBars, targetOffset || 0);
-  const labels = points.map(p => dateLabel(p.Date));
-  const keys = points.map(p => p.Date);
+  const futureCount = wantsForecast ? Math.max(settings.futureBars, targetOffset || 0) : 0;
+  const labels = points.map(p => p.forecastAnchor ? `${p.Date.slice(0, 10)} completed Close` : dateLabel(p.Date));
+  const keys = points.map(p => p.forecastAnchor ? `anchor:${p.Date}` : p.Date);
   for (let step = 1; step <= futureCount; step++) {
     labels.push(futureLabel(step, settings.interval));
     keys.push(`future:${step}`);
@@ -83,9 +90,10 @@ export function buildChartData(prices, settings, predictions, colors) {
     data: points.map(point => observedValue(point, candle, field)).concat(nullSlots(futureCount)),
     yAxisID: 'y', borderColor: colors.price, backgroundColor: colors.price, borderWidth: 2,
     pointRadius: 0, pointHoverRadius: candle ? 0 : 3, pointHitRadius: 6, tension: 0,
-    showLine: !candle, fill: false, order: 2 };
+    showLine: !candle, spanGaps: true, fill: false, order: 2 };
   const datasets = [primary];
   let forecastSegment = null;
+  let forecastRange = null;
   if (originIndex >= 0 && targetOffset) {
     const end = historyCount - 1 + targetOffset;
     const values = nullSlots(labels.length);
@@ -97,8 +105,18 @@ export function buildChartData(prices, settings, predictions, colors) {
       yAxisID: 'y', borderColor: colors.forecast, backgroundColor: colors.forecast,
       borderDash: [6, 5], pointRadius: 3, borderWidth: 2, tension: 0, spanGaps: true, fill: false, order: 1 });
     notes.push(`Dashed line starts at the ${forecast.origin.slice(0, 10)} completed Close and ends at one ${forecast.horizon}-session estimate; intermediate prices are not predicted.`);
+    if (settings.showUncertainty && Number.isFinite(forecast.lower_price) && Number.isFinite(forecast.upper_price)
+        && forecast.lower_price > 0 && forecast.upper_price >= forecast.lower_price) {
+      forecastRange = {end, lower:forecast.lower_price, upper:forecast.upper_price};
+      for (const [name, value] of [['Lower',forecast.lower_price],['Upper',forecast.upper_price]]) {
+        const bounds = nullSlots(labels.length); bounds[end] = value;
+        datasets.push({id:`interval-${name}`,label:`${name} · nominal 80% range`,data:bounds,
+          yAxisID:'y',borderColor:colors.forecast,backgroundColor:colors.forecast,pointRadius:4,showLine:false});
+      }
+      notes.push('Optional nominal 80% endpoint range. Actual historical coverage is reported in Research; coverage is not guaranteed.');
+    }
   }
-  if (['both', 'probability'].includes(settings.overlay)) {
+  if (['both', 'probability'].includes(settings.overlay) && ['1d', 'auto'].includes(settings.interval)) {
     const byDate = new Map((predictions?.probabilities || []).filter(p => Number.isFinite(p.probability)
       && p.probability >= 0 && p.probability <= 1).map(p => [p.timestamp.slice(0, 10), p.probability * 100]));
     const values = points.map((p, i) => {
@@ -109,9 +127,29 @@ export function buildChartData(prices, settings, predictions, colors) {
       yAxisID: 'probability', borderColor: colors.probability, backgroundColor: colors.probability,
       pointRadius: 1, borderWidth: 2, tension: 0, spanGaps: true, fill: false, order: 0 });
   }
+  if (['both', 'probability'].includes(settings.overlay) && !['1d', 'auto'].includes(settings.interval)) {
+    notes.push('Daily event probabilities are shown on the daily chart only, so end-of-day estimates are not assigned to earlier intraday or aggregated candles.');
+  }
+  const latest = prices.findLast(p => Number.isFinite(p.Close) && p.Close > 0);
+  const quote = settings.quote;
+  const currentPrice = settings.priceField === 'current' && !candle && latest ? {
+    price: Number.isFinite(quote?.price) && quote.price > 0 ? quote.price : latest.Close,
+    source: Number.isFinite(quote?.price) && quote.price > 0 ? 'Latest quote' : 'Latest candle Close',
+    timestamp: Number.isFinite(quote?.price) && quote.price > 0 ? quote.timestamp : latest.Date,
+  } : null;
+  if (currentPrice) {
+    const pointIndex = points.findLastIndex(p => !p.forecastAnchor && Number.isFinite(p.Close) && p.Close > 0);
+    currentPrice.pointIndex = pointIndex;
+    // Only the displayed endpoint changes. Keep raw OHLC and model anchors intact.
+    primary.data[pointIndex] = currentPrice.price;
+    primary.label = `Current price (${settings.interval})`;
+    primary.pointRadius = primary.data.map((_, index) => index === pointIndex ? 3 : 0);
+    if (currentPrice.source === 'Latest quote') labels[pointIndex] = 'Latest quote';
+    notes.push(`Current line: historical Close samples ending at ${currentPrice.source.toLowerCase()} ${currentPrice.price.toFixed(2)}${currentPrice.timestamp ? ` · ${currentPrice.timestamp}` : ' · quote time unavailable'}. The quote uses the last display slot; underlying OHLC and the forecast origin are unchanged. Yahoo data may be delayed.`);
+  }
   if (candle && points.some(p => !p.forecastAnchor && !validCandle(p))) notes.push('Candles with incomplete or invalid OHLC values are omitted.');
-  return { labels, keys, datasets, points, historyCount, futureCount, forecastSegment,
-    candle, notes: notes.join(' ') };
+  return { labels, keys, datasets, points, historyCount, futureCount, forecastSegment, forecastRange,
+    candle, currentPrice, notes: notes.join(' ') };
 }
 
 export function latestViewport(data, visibleBars) {
@@ -139,6 +177,10 @@ export function visiblePriceRange(data, bounds) {
       if (Number.isFinite(value)) values.push(value);
     }
   }
+  if (data.currentPrice) values.push(data.currentPrice.price);
+  if (data.forecastRange && bounds.min <= data.forecastRange.end && bounds.max >= data.forecastRange.end) {
+    values.push(data.forecastRange.lower, data.forecastRange.upper);
+  }
   const segment = data.forecastSegment;
   if (segment && bounds.max >= segment.start && bounds.min <= segment.end) {
     // Only for axis bounds of the straight connector, never model data points.
@@ -164,6 +206,16 @@ export const marketDrawingPlugin = {
     if (boundary < area.right) {
       ctx.fillStyle = chart.$colors.future;
       ctx.fillRect(Math.max(area.left, boundary), area.top, area.right - Math.max(area.left, boundary), area.bottom - area.top);
+    }
+    if (data.currentPrice && chart.isDatasetVisible(0)) {
+      const py = y.getPixelForValue(data.currentPrice.price);
+      ctx.strokeStyle = chart.$colors.price; ctx.lineWidth = 1;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath(); ctx.moveTo(area.left, py); ctx.lineTo(area.right, py); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = chart.$colors.price; ctx.font = '12px Helvetica Neue, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${data.currentPrice.source} ${data.currentPrice.price.toFixed(2)}`, area.right - 6, Math.max(area.top + 14, py - 6));
     }
     if (data.candle && chart.isDatasetVisible(0)) {
       const width = Math.max(1, Math.min(24, Math.abs(x.getPixelForValue(1) - x.getPixelForValue(0)) * .65));

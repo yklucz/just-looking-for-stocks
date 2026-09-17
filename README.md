@@ -6,10 +6,10 @@ This is a research application. It does not place trades, connect to a broker, o
 
 ## Quick start
 
-The currently verified environment is Python 3.11 on Apple Silicon or another CPU-capable platform. From the repository root:
+The currently verified environment is Python 3.13.15 on Apple Silicon. Dependencies are pinned in requirements.txt. From the repository root:
 
 ```bash
-python3.11 -m venv .venv
+python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
@@ -40,11 +40,11 @@ The dashboard provides:
 - locally saved theme, ticker, range, interval, overlays, chart type, zoom span and refresh preferences
 - historical backtest reports from frozen out-of-fold predictions
 
-Selecting a stock loads its validated saved model. If none exists, the dashboard automatically starts a background XGBoost training job, shows its status, and displays the probability when ready. The history chart stays usable. Existing models are reused; incompatible artifacts are rejected rather than overwritten.
+Selecting a stock reuses its saved active model. A missing model starts a persistent candidate-training job; completing training does not activate it. Open **Research** to inspect datasets and experiments, nominate a frozen shadow candidate, and review eligibility before manual activation. The price chart remains usable while training runs.
 
-Automatic training uses the existing daily history cache (normally from 2012 onward), 49 causal features, the five-candle target, and the purged 70/15/15 chronological split. Only TRAIN fits the model; VALIDATION controls early stopping. TEST remains excluded from fitting. This does not change frozen research results or establish predictive edge.
+The local research platform adds immutable snapshots, SQLite records, calendar-aware data validation, market-context features, purged walk-forward comparisons, probability calibration, quantile ranges, a prospective forecast ledger, and reversible model activation. Daily refresh and monthly candidate jobs run while the server is open. Existing model files and manifest bindings are preserved.
 
-The local server runs one training job at a time, with at most four active or queued stocks. Requests for the same ticker share a job. This in-process queue is intended for the single-process local Flask app; production deployments need a shared job queue. Failed data validation is reported honestly. After correcting a transient failure, select the stock again after a 60-second retry cooldown. New artifacts are saved under `artifacts/dashboard/<ticker>/<run-id>/` and bound automatically. Older artifacts are retained.
+See [research operations and interfaces](docs/research-platform.md) and [initial measured results](docs/research-initial-results.md) for commands, evidence boundaries, scheduling, backup, and recovery.
 
 ## Prediction definition
 
@@ -67,7 +67,7 @@ probability >= 0.5  -> LONG
 otherwise           -> FLAT
 ```
 
-The probability is uncalibrated. A LONG/FLAT state is an estimate for research, not an order or investment recommendation.
+Legacy probabilities are uncalibrated; research models report their calibration status. A LONG/FLAT state is a research estimate and does not execute an order.
 
 ## API
 
@@ -91,11 +91,23 @@ Prediction is daily and uses completed Close candles regardless of the chart int
 
 The chart’s `Both estimates` view uses the observed price axis for the historical line and a separate 0–100% axis for event probability. The dashed price connector appears only after a separate XGBoost return-regression model is trained; it joins the latest observed Close to one five-session estimated price and does not invent intermediate prices. Yahoo Finance may publish delayed candles, so refresh frequency cannot guarantee exchange real-time data.
 
-The chart reserves 5, 10 or 20 blank future slots on the right. Daily slots count sessions; intraday slots count minutes. These are relative display slots, not exchange-calendar dates or extra predictions. On intraday/weekly/monthly charts the daily forecast endpoint is explicitly labelled as a separate horizon checkpoint and its spacing is schematic. Its connector starts at the completed Close used by the model, even if a newer live candle exists; that estimate is never silently rebased to a live quote.
+The chart reserves 5, 10 or 20 blank future slots on the right. Daily slots count sessions; intraday slots count minutes. These are relative display slots, not exchange-calendar dates or extra predictions. On intraday charts the daily forecast endpoint is explicitly labelled as a separate horizon checkpoint and its spacing is schematic. Changing right space does not move this checkpoint. Weekly/monthly/five-day charts omit the connector because their candles do not count daily sessions; use a daily or intraday interval to see it. Historical daily probabilities appear only on the daily chart. Its connector starts at the completed Close used by the model, even if a newer live candle exists; that estimate is never silently rebased to a live quote.
 
 `Max zoom` focuses on the latest two observed candles plus future space. Wheel/pinch and the `+`/`−` controls can zoom further; `Fit all` shows the full loaded range, and `Latest` resumes following new candles at your current zoom. When viewing older candles, refresh preserves the inspected timestamps. Refresh updates the existing Chart.js instance and table cells without clearing the chart or replaying its animation. A changed current candle replaces the existing point; a new timestamp adds a point. A failed refresh keeps the last display with an update warning. Quote/history polling continues during background model training.
 
 Candlesticks draw actual Open/High/Low/Close bodies and wicks, with OHLC tooltips. Missing/invalid candle data is omitted; no future OHLC candles are fabricated. Display preferences are stored in this browser's local storage; clearing site data resets them. The saved theme is applied before the page paints, and unavailable local storage does not prevent the application from running.
+
+The default view is `Current` with `Price only`: one price line, no redundant legend or empty forecast slots. Forecast/probability overlays remain selectable; explanatory notes are under `Chart details`. Its line ends at the latest available regular-market quote in the last display slot, with earlier points drawn from historical Close samples. The legend reads Current price and the endpoint tooltip includes the supplied quote timestamp. A horizontal marker identifies the same current value. If a quote is missing, the marker explicitly falls back to the latest candle Close. Quotes do not overwrite OHLC or rebase a model forecast. Existing saved display selections are retained.
+
+The `Prediction accuracy` disclosure reports retrospective scores for resolved post-validation origins: classifier accuracy, ROC-AUC and Brier score, plus regression MAE, RMSE and MAPE. It includes dates, sample counts and simple baselines. The latest unresolved five-session targets are excluded. Classification and regression can have different evaluation windows because they have separate artifacts. The API limits these diagnostics to the most recent 2,000 eligible origins per model. These are historical replays of a frozen model, not a contemporaneously logged live forecast record.
+
+A reproducible offline audit can use an existing frozen `market_history.csv` without downloading data or training:
+
+```bash
+python -m stock_app.prediction.audit --ticker AAPL --history /absolute/path/to/market_history.csv
+```
+
+The CLI evaluates all eligible origins in the supplied snapshot, checks the bound model contract, and emits JSON with model versions, source path, source checksum, dates and scores. See [the detailed prediction review](docs/prediction-review.md) and its linked JSON evidence.
 
 ### Other endpoints
 
@@ -282,9 +294,10 @@ python -m compileall -q stock_app tests scripts
 git diff --check
 node scripts/test_frontend_contract.mjs
 node scripts/test_chart_data.mjs
+node scripts/test_research_frontend.mjs
 ```
 
-The Python suite has 258 passing tests and no skipped TensorFlow/Keras tests. The frontend contract test covers saved preferences, chart switching, in-place refresh, failed refreshes, and automatic training with test DOM and Chart.js adapters. The chart-data checks cover future spacing, forecast anchors, viewport continuity and OHLC drawing. These automated checks are separate from visual browser verification.
+The Python suite has 343 passing tests. The frontend checks cover saved preferences, chart switching, in-place refresh, failed refreshes, candidate training, Research tabs and exports. Chart checks cover future spacing, forecast anchors, Current-price behavior, optional ranges, viewport continuity and OHLC drawing. See [research verification](docs/research-verification.md) for the separate offline, live-provider and responsive-browser evidence, and [regression testing](docs/research-bugfix-verification.md) for the latest failure-path fixes and checks.
 
 ## Project layout
 
@@ -298,6 +311,7 @@ stock_app/
 ├── training/              Splits, datasets, training, and walk-forward runs
 ├── backtest/              Frozen-OOF execution and performance metrics
 ├── prediction/            Validated artifact loading and API inference
+├── research/              SQLite records, verified data, experiments and model lifecycle
 └── stocks_dashboard/      HTML, JavaScript, and CSS frontend
 
 config/                    Explicit application model bindings
@@ -311,7 +325,7 @@ tests/                     Unit, leakage, model, API, and backtest tests
 
 - Yahoo Finance availability and data quality can vary.
 - Daily candles are conservatively restricted to completed observations.
-- Model probabilities are uncalibrated unless a later research stage adds calibration.
+- Legacy model probabilities remain uncalibrated. Research candidates use separate-block sigmoid calibration; this does not guarantee accurate probabilities.
 - Overlapping five-candle targets are statistically dependent.
 - A single ticker or walk-forward run is not evidence of a durable trading edge.
 - Feature importance does not establish causality.

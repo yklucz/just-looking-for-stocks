@@ -52,6 +52,7 @@
       </a>
 
       <div class="masthead-actions">
+        <a href="/research">Research</a>
         <span class="badge">
           Research workspace
         </span>
@@ -366,10 +367,10 @@
 
                 <select id="priceFieldSelect">
                   <option
-                    value="close"
+                    value="current"
                     selected
                   >
-                    Close
+                    Current
                   </option>
 
                   <option value="open">
@@ -384,8 +385,8 @@
                     Low
                   </option>
 
-                  <option value="current">
-                    Current
+                  <option value="close">
+                    Close
                   </option>
                 </select>
               </label>
@@ -395,10 +396,10 @@
 
                 <select id="overlaySelect">
                   <option
-                    value="both"
+                    value="none"
                     selected
                   >
-                    Both estimates
+                    Price only
                   </option>
 
                   <option value="forecast">
@@ -409,10 +410,15 @@
                     Probability
                   </option>
 
-                  <option value="none">
-                    Price only
+                  <option value="both">
+                    Both estimates
                   </option>
                 </select>
+              </label>
+
+              <label for="uncertaintyToggle">
+                <input type="checkbox" id="uncertaintyToggle">
+                Estimate range
               </label>
 
               <label for="futureBarsSelect">
@@ -468,7 +474,7 @@
           <!-- Chart heading -->
           <div class="chart-header">
             <h3 id="priceChartLabel">
-              Price chart (Close)
+              Price chart (Current)
             </h3>
 
             <div class="chart-navigation">
@@ -549,12 +555,11 @@
             </canvas>
           </div>
 
-          <!-- Dynamic overlay status -->
-          <p
-            id="overlayStatus"
-            class="model-note"
-            aria-live="polite"
-          ></p>
+          <p id="chartWarning" class="model-note" role="status"></p>
+          <details class="chart-details">
+            <summary>Chart details</summary>
+            <p id="overlayStatus" class="model-note"></p>
+          </details>
 
           <div class="chart-caption">
             <span id="priceMeta">
@@ -641,6 +646,14 @@
           >
             Loading saved model…
           </p>
+
+          <p id="forecastDetails" class="model-note">Price estimate unavailable.</p>
+          <details class="model-details">
+            <summary>Prediction accuracy <span aria-hidden="true">+</span></summary>
+            <p id="classificationAccuracy" class="model-note">Classification evaluation unavailable.</p>
+            <p id="regressionAccuracy" class="model-note">Price forecast evaluation unavailable.</p>
+            <p class="model-note">Scores use resolved outcomes after model validation. The last five daily origins are unresolved and excluded. Adjacent five-session outcomes overlap. These retrospective checks are not a live forecast track record; probability is not model accuracy.</p>
+          </details>
 
           <details class="model-details">
             <summary>
