@@ -58,7 +58,9 @@ async function fetch(url, options={}) {
                   signal:{action:'LONG',decision_threshold:.5},model:{type:'xgboost',trained_until:'2023-12-04',version:'abcdef1234567890',stale:true},market:{stale:false}};
   } else if(u.pathname==='/api/prediction-chart') payload={forecast_status:'ready',
     probabilities:[{timestamp:'2026-09-08',probability:.55},{timestamp:'2026-09-09',probability:.63}],
-    forecast:{origin:'2026-09-09',origin_close:104,horizon:5,estimated_price:106}};
+    forecast:{origin:'2026-09-09',origin_close:104,horizon:5,estimated_price:106},
+    evaluation:{classification:{status:'ready',samples:30,pending_samples:5,origin_start:'2026-07-20',origin_end:'2026-09-02',metrics:{accuracy:.6,roc_auc:.52,brier_score:.24},baseline:{accuracy:.65}},
+      regression:{status:'ready',samples:30,pending_samples:5,origin_start:'2026-07-20',origin_end:'2026-09-02',metrics:{price_mae:4,price_rmse:5,price_mape_percent:3.7},baseline:{price_mae:3},beats_baseline_mae:false}}};
   else if(u.pathname==='/api/train') {
     assert.equal(options.method,'POST');
     assert.equal(options.headers['Content-Type'],'application/json');
@@ -74,7 +76,7 @@ async function fetch(url, options={}) {
     if(historyFailure) { ok=false; payload={error:'History temporarily unavailable'}; }
     else payload={prices,interval:'1d'};
   }
-  else if(u.pathname==='/api/info') payload={symbol:'AAPL',name:'Apple',currentPrice:104};
+  else if(u.pathname==='/api/info') payload={symbol:'AAPL',name:'Apple',currentPrice:110,quoteTimestamp:'2026-09-09T20:00:00+00:00'};
   else payload=[{symbol:'AAPL',name:'Apple'}];
   return {ok,json:async()=>payload};
 }
@@ -85,12 +87,21 @@ vm.createContext(context);
 vm.runInContext(preferencesSource, context);
 const runtime=vm.runInContext(`(async()=>{${source.replace(/^import .*;\n/, '')}\n return {loadAll,runSearch,state,latestView};})()`,context);
 const app=await runtime;
+assert.equal(elements.priceFieldSelect.value,'current');
+assert.equal(charts[0].$marketData.currentPrice.price,110);
 assert.equal(elements.predictionValue.textContent,'63.0%');
 assert.match(elements.predictionStatus.textContent,/stale/);
 assert.equal(elements.predictionHorizon.textContent,'5 daily candles');
+assert.match(elements.forecastDetails.textContent,/106/);
+assert.match(elements.classificationAccuracy.textContent,/60.0%/);
+assert.match(elements.regressionAccuracy.textContent,/did not beat/);
 assert.equal(table.children.length,2);
 assert.ok(charts.length >= 1);
-assert.deepEqual(Array.from(charts[0].data.datasets[0].data.slice(0,2)),[102,104]);
+assert.deepEqual(Array.from(charts[0].data.datasets[0].data.slice(0,2)),[102,110]);
+assert.equal(charts[0].data.datasets.length,1);
+assert.equal(charts[0].$marketData.futureCount,0);
+assert.equal(charts[0].options.plugins.legend.display,false);
+await elements.overlaySelect.listeners.change({target:{value:'both'}});
 assert.equal(charts[0].data.datasets.length,3);
 assert.equal(charts.length,1);
 assert.equal(elements.error.textContent,'');
@@ -192,3 +203,10 @@ await app.loadAll();
 assert.equal(elements.predictionValue.textContent,'—');
 assert.match(elements.predictionStatus.textContent,/Invalid model probability/);
 console.log('Frontend contract: overlays, persistence, candlesticks, in-place refresh, failures, search and automatic training passed');
+// A standalone daily Close anchor is not one of the two candles in Max zoom.
+app.state.chartPredictions={forecast:{origin:'2026-09-09',origin_close:104,horizon:5,estimated_price:106}};
+app.state.chartInterval='1m';
+app.state.historyData=[{...prices[0],Date:'2026-09-09 15:58'},{...prices[1],Date:'2026-09-09 15:59'}];
+elements.priceFieldSelect.value='current'; elements.priceFieldSelect.listeners.change();
+elements.maxPriceZoom.listeners.click();
+assert.match(elements.chartViewStatus.textContent,/2 visible candles/);

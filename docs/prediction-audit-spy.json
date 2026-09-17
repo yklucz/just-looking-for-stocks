@@ -1,0 +1,71 @@
+{
+  "ticker": "SPY",
+  "history_path": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/SPY/1d/h5/walk_forward/20260910T081700_fdf71a33/market_history.csv",
+  "history_sha256": "2b6ff7779687605e521f10875d6291fb4a2f1791988c39649d84ddeed7492fb8",
+  "history_start": "2012-01-03T05:00:00+00:00",
+  "history_end": "2026-09-09T04:00:00+00:00",
+  "method": "Frozen bound model; all resolved post-validation origins in supplied snapshot. No training or model selection. Historical replay, not contemporaneously logged predictions.",
+  "models": {
+    "xgboost": {
+      "version": "c4d8df98f249391cac015b68a0e972f94c8faa97c4aefa170180e453516611ee",
+      "fit_dates": {
+        "train": {
+          "label_end": "2023-12-04T00:00:00-05:00",
+          "origin_end": "2023-11-27T00:00:00-05:00",
+          "origin_start": "2012-10-16T00:00:00-04:00",
+          "samples": 2796
+        },
+        "validation": {
+          "label_end": "2024-12-02T00:00:00-05:00",
+          "origin_end": "2024-11-22T00:00:00-05:00",
+          "origin_start": "2023-12-05T00:00:00-05:00",
+          "samples": 245
+        }
+      },
+      "evaluation": {
+        "status": "ready",
+        "samples": 437,
+        "pending_samples": 5,
+        "available_after": "2024-12-02T05:00:00+00:00",
+        "horizon": 5,
+        "metrics": {
+          "accuracy": 0.5606407322654462,
+          "balanced_accuracy": 0.5,
+          "precision": 0.5606407322654462,
+          "recall": 1.0,
+          "f1": 0.718475073313783,
+          "roc_auc": 0.5,
+          "pr_auc": 0.5606407322654462,
+          "brier_score": 0.2463454757297199,
+          "log_loss": 0.6858206048835596,
+          "confusion_matrix": [
+            [
+              0,
+              192
+            ],
+            [
+              0,
+              245
+            ]
+          ],
+          "decision_threshold": 0.5,
+          "pr_auc_definition": "average_precision (non-trapezoidal)",
+          "directional_accuracy": null
+        },
+        "note": "Retrospective frozen-model diagnostics after validation; overlapping outcomes are dependent. Not a live forecast track record or evidence of future accuracy.",
+        "origin_start": "2024-12-03T05:00:00+00:00",
+        "origin_end": "2026-09-01T04:00:00+00:00",
+        "outcome_end": "2026-09-09T04:00:00+00:00",
+        "baseline": {
+          "name": "Always predict the return event",
+          "accuracy": 0.5606407322654462
+        },
+        "event_frequency": 0.5606407322654462
+      }
+    },
+    "xgboost_regressor": {
+      "status": "unavailable",
+      "reason": "No bound, compatible saved XGBoost artifact for SPY. Train offline and bind an artifact."
+    }
+  }
+}

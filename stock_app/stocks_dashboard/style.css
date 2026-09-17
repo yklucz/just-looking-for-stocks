@@ -140,3 +140,7 @@ footer { border-top: 1px solid var(--border); display: flex; justify-content: sp
 .chart-navigation > button:not(.text-btn) { width: 30px; height: 30px; font-size: 16px; padding: 0; }
 .inline-controls select:disabled { color: var(--muted); opacity: .65; }
 #priceChart { touch-action: pan-y; }
+
+.chart-details { margin-top: 12px; color: var(--muted); font-size: 11px; }
+.chart-details summary { cursor: pointer; width: fit-content; }
+#chartWarning:empty { display: none; }

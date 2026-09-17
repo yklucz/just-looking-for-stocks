@@ -4,12 +4,15 @@ const state = {
   ticker: "AAPL",
   range: "1m",
   interval: "auto",
-  priceField: "close",
+  priceField: "current",
   showFullHistory: false,
   historyData: [],
   theme: "light",
-  overlay: "both",
+  overlay: "none",
+  showUncertainty: false,
   chartPredictions: null,
+  quote: null,
+  chartEstimateError: null,
   chartInterval: "auto",
   chartType: 'line', futureBars: 10, visibleBars: 60, autoRefresh: true,
   ...globalThis.StockPreferences?.read(),
@@ -391,7 +394,9 @@ async function loadInfo(loadToken, ticker) {
   document.getElementById("infoSymbol").textContent = info.symbol ? info.symbol : "—";
   document.getElementById("infoSector").textContent = info.sector || "—";
   document.getElementById("infoIndustry").textContent = info.industry || "—";
+  state.quote = { price: info.currentPrice, timestamp: info.quoteTimestamp };
   document.getElementById("infoPrice").textContent = formatUSD(info.currentPrice);
+  redrawOverlays();
   document.getElementById("infoMarketCap").textContent = info.marketCap ? info.marketCap.toLocaleString("en-US") : "—";
   const range = (info.fiftyTwoWeekLow || "—") + " / " + (info.fiftyTwoWeekHigh || "—");
   document.getElementById("info52w").textContent = range;
@@ -519,8 +524,8 @@ function latestView(bars = state.visibleBars) {
 
 function updateChartViewStatus(chart) {
   if (!chart?.$marketData) return;
-  const count = Math.max(0, Math.min(chart.$marketData.historyCount, Math.floor(chart.scales.x.max) + 1)
-    - Math.max(0, Math.ceil(chart.scales.x.min)));
+  const count = chart.$marketData.points.slice(Math.max(0, Math.ceil(chart.scales.x.min)),
+    Math.floor(chart.scales.x.max) + 1).filter(p => !p.forecastAnchor).length;
   document.getElementById('chartViewStatus').textContent = `${count} visible candles · ${followingLatest ? 'Following latest' : 'Historical view'} `;
 }
 
@@ -531,8 +536,16 @@ function chartTooltip(item) {
     return `Open ${formatUSD(row.Open)} · High ${formatUSD(row.High)} · Low ${formatUSD(row.Low)} · Close ${formatUSD(row.Close)}`;
   }
   const value = item.parsed.y;
+  const current = priceChart?.$marketData.currentPrice;
+  if (item.dataset.id === 'observed' && current) {
+    return item.dataIndex === current.pointIndex
+      ? `${current.source}: ${formatUSD(value)} · ${current.timestamp || 'quote time unavailable'}`
+      : `Historical Close: ${formatUSD(value)}`;
+  }
   if (item.dataset.id === 'probability') return `Model probability: ${value.toFixed(1)}%`;
-  const label = item.dataset.id === 'forecast' ? 'Horizon connector endpoint' : item.dataset.label;
+  const label = item.dataset.id === 'forecast'
+    ? (item.dataIndex === priceChart.$marketData.forecastSegment.start ? 'Model origin · completed Close' : 'Estimated Close · five-session target')
+    : item.dataset.label;
   return `${label}: ${formatUSD(value)}`;
 }
 
@@ -547,6 +560,7 @@ function renderPriceChart(prices, range, priceField, intervalLabel) {
   document.getElementById('priceChartLabel').textContent = state.chartType === 'candle'
     ? 'Candlesticks · Open / High / Low / Close' : `Price chart (${priceFieldLabel(priceField)})`;
   priceFieldSelect.disabled = state.chartType === 'candle';
+  document.getElementById('futureBarsSelect').disabled = !['both', 'forecast'].includes(state.overlay);
   const canvas = document.getElementById('priceChart');
   const zoomOpts = zoomOptions(canvas);
   const scales = { ...zoomOpts.scales, probability: {
@@ -557,7 +571,7 @@ function renderPriceChart(prices, range, priceField, intervalLabel) {
   Object.assign(scales.x, view);
   Object.assign(scales.y, visiblePriceRange(data, view));
   const plugins = {
-    legend: { display: true, labels: { color: zoomOpts.legendColor, boxWidth: 12, font: { size: 10 } } },
+    legend: { display: data.datasets.length > 1, labels: { color: zoomOpts.legendColor, boxWidth: 12, font: { size: 10 } } },
     zoom: { zoom: zoomOpts.zoom, pan: zoomOpts.pan,
       limits: { x: { min: 0, max: data.labels.length - 1, minRange: 1 } } },
     crosshair: { enabled: true }, tooltip: { callbacks: { label: chartTooltip } },
@@ -599,6 +613,7 @@ async function loadChartPredictions(loadToken, ticker) {
   try {
     let result = await fetchJSON(`/api/prediction-chart?${new URLSearchParams({ticker})}`);
     if (loadToken !== activeLoadToken) return;
+    state.chartEstimateError = null;
     state.chartPredictions = result;
     redrawOverlays();
     if (result.forecast_status === 'missing' && ['both', 'forecast'].includes(state.overlay)) {
@@ -610,16 +625,25 @@ async function loadChartPredictions(loadToken, ticker) {
           result = await fetchJSON(`/api/prediction-chart?${new URLSearchParams({ticker})}`);
           break;
         }
-        if (job.status !== 'training') throw new Error(job.error || 'Return model training failed');
+        if (job.status === 'candidate') {
+          result.forecast_status = 'candidate';
+          result.forecast_error = 'Candidate ready. Open Research to nominate and evaluate it before activation.';
+          break;
+        }
+        if (job.status !== 'training') throw new Error(job.error || 'Open Research to review the training job.');
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     if (loadToken !== activeLoadToken) return;
+    state.chartEstimateError = null;
     state.chartPredictions = result;
     redrawOverlays();
     updateOverlayStatus();
   } catch (error) {
-    if (loadToken === activeLoadToken) status.textContent = `Chart estimates unavailable: ${error.message}`;
+    if (loadToken === activeLoadToken) {
+      state.chartEstimateError = `Chart estimates unavailable: ${error.message}${state.chartPredictions ? ' Showing the previous estimate.' : ''}`;
+      updateOverlayStatus();
+    }
   }
 }
 
@@ -627,11 +651,34 @@ function redrawOverlays() {
   if (state.historyData.length) renderPriceChart(state.historyData, state.range, state.priceField, state.chartInterval);
 }
 
+function updateEstimateDetails() {
+  const forecast = state.chartPredictions?.forecast;
+  document.getElementById('forecastDetails').textContent = forecast
+    ? `Estimated Close ${formatUSD(forecast.estimated_price)} after ${forecast.horizon} daily sessions from ${forecast.origin.slice(0,10)}. Model origin Close ${formatUSD(forecast.origin_close)}; estimated change ${((forecast.estimated_price / forecast.origin_close - 1) * 100).toFixed(2)}%. One endpoint estimate; no intermediate path or confidence interval is available.`
+    : 'Price estimate unavailable.';
+  const evaluation = state.chartPredictions?.evaluation;
+  const classification = evaluation?.classification, regression = evaluation?.regression;
+  const period = result => `${result.samples} resolved origins, ${result.origin_start.slice(0,10)} to ${result.origin_end.slice(0,10)}; ${result.pending_samples} unresolved.`;
+  const fixed = value => Number.isFinite(value) ? value.toFixed(3) : 'unavailable';
+  document.getElementById('classificationAccuracy').textContent = classification?.status === 'ready'
+    ? `Return-event accuracy ${(classification.metrics.accuracy * 100).toFixed(1)}% versus ${(classification.baseline.accuracy * 100).toFixed(1)}% always predicting the event. ROC-AUC ${fixed(classification.metrics.roc_auc)} (0.5 is chance ranking); Brier ${fixed(classification.metrics.brier_score)} (lower is better). ${period(classification)}`
+    : 'Classification evaluation unavailable: no resolved outcomes or evaluation data.';
+  document.getElementById('regressionAccuracy').textContent = regression?.status === 'ready'
+    ? `Price error: MAE ${formatUSD(regression.metrics.price_mae)}, RMSE ${formatUSD(regression.metrics.price_rmse)}, MAPE ${regression.metrics.price_mape_percent.toFixed(2)}%. Unchanged-Close baseline MAE ${formatUSD(regression.baseline.price_mae)}. The model ${regression.beats_baseline_mae ? 'beat' : 'did not beat'} that baseline on MAE in this sample. ${period(regression)}`
+    : 'Price forecast evaluation unavailable: no resolved outcomes or compatible return model.';
+}
+
 function updateOverlayStatus() {
+  updateEstimateDetails();
+  document.getElementById('chartWarning').textContent = state.chartEstimateError
+    || (state.chartPredictions?.forecast_status === 'unavailable' && ['both', 'forecast'].includes(state.overlay)
+      ? state.chartPredictions.forecast_error : '');
   document.getElementById('overlayStatus').textContent = [
+    state.chartEstimateError,
     priceChart?.$marketData.notes,
     state.chartPredictions?.forecast_status === 'unavailable' ? state.chartPredictions.forecast_error : '',
-    'Shaded slots are future space, not scheduled trading dates. Purple uses the % axis.',
+    priceChart?.$marketData.futureCount ? 'Shaded slots are future space, not scheduled trading dates.' : '',
+    priceChart?.$marketData.datasets.some(d => d.id === 'probability') ? 'Purple uses the % axis.' : '',
   ].filter(Boolean).join(' ');
 }
 
@@ -655,7 +702,11 @@ async function loadPrediction(loadToken, ticker, background = false) {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticker }),
         });
         if (job.status === "ready") { data = await fetchJSON(url); break; }
-        if (job.status !== "training") throw new Error(job.error || "Training failed");
+        if (job.status === 'candidate') {
+          clearPrediction('Candidate ready. Open Research to nominate and evaluate it before activation.');
+          return;
+        }
+        if (job.status !== "training") throw new Error(job.error || "Open Research to review the training job.");
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
@@ -671,7 +722,7 @@ async function loadPrediction(loadToken, ticker, background = false) {
     document.getElementById("predictionTrained").textContent = data.model.trained_until.slice(0,10);
     document.getElementById("predictionVersion").textContent = data.model.version.slice(0,12);
     document.getElementById("predictionStatus").textContent = [
-      "Uncalibrated model probability. Research only; economic value is not established.",
+      `${p.calibrated ? 'Calibrated' : 'Uncalibrated'} model probability. Research only; economic value is not established.`,
       data.model.stale ? "Model is stale; offline retraining is required to refresh it." : "",
       data.market.stale ? "Market data is stale." : "",
     ].filter(Boolean).join(" ");
@@ -750,7 +801,7 @@ async function loadAll(background = false) {
     state.ticker = (tickerInput.value.trim() || state.ticker || "").toUpperCase();
     tickerInput.value = state.ticker;
     state.interval = intervalSelect.value || "auto";
-    state.priceField = priceFieldSelect.value || "close";
+    state.priceField = priceFieldSelect.value || "current";
     activeLoadToken += 1;
     saveSettings();
   }
@@ -764,6 +815,9 @@ async function loadAll(background = false) {
     clearPrediction();
     state.historyData = [];
     state.chartPredictions = null;
+    state.quote = null;
+    state.chartEstimateError = null;
+    updateEstimateDetails();
     document.getElementById('overlayStatus').textContent = '';
   }
   setError("");
@@ -838,6 +892,10 @@ document.getElementById('overlaySelect').addEventListener('change', async (event
     await loadAll(true);
   }
 });
+document.getElementById('uncertaintyToggle')?.addEventListener('change', (event) => {
+  state.showUncertainty = event.target.checked;
+  redrawOverlays();
+});
 document.getElementById('chartTypeSelect').addEventListener('change', (event) => {
   state.chartType = event.target.value;
   saveSettings(); redrawOverlays();
@@ -853,7 +911,13 @@ document.getElementById('zoomIn').addEventListener('click', () => {
 document.getElementById('zoomOut').addEventListener('click', () => {
   priceChart?.zoom({ x: .67 }, 'none'); updateVisibleScale(priceChart); rememberViewport(priceChart);
 });
-document.getElementById('maxPriceZoom').addEventListener('click', () => latestView((priceChart?.$marketData.futureCount || state.futureBars) + 2));
+document.getElementById('maxPriceZoom').addEventListener('click', () => {
+  const data = priceChart?.$marketData;
+  if (!data) return;
+  const observed = data.points.map((point, index) => point.forecastAnchor ? -1 : index).filter(index => index >= 0);
+  const start = observed.at(-2) ?? observed[0] ?? 0;
+  latestView(data.labels.length - start);
+});
 document.getElementById('fitPriceZoom').addEventListener('click', () => latestView(priceChart?.$marketData.labels.length || 60));
 document.getElementById('resetPriceZoom').addEventListener('click', () => latestView());
 document.getElementById('autoRefresh').addEventListener('change', (event) => {

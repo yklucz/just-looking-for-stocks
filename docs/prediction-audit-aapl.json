@@ -1,0 +1,109 @@
+{
+  "ticker": "AAPL",
+  "history_path": "/Users/lucas/Documents/LucasProject/just-looking-for-stocks/artifacts/AAPL/1d/h5/walk_forward/20260910T081655_ca5887a2/market_history.csv",
+  "history_sha256": "d9b4a7545636b9dea1d0d61bbf6d66f6b2a8aff264406954e4400f3012743984",
+  "history_start": "2012-01-03T05:00:00+00:00",
+  "history_end": "2026-09-09T04:00:00+00:00",
+  "method": "Frozen bound model; all resolved post-validation origins in supplied snapshot. No training or model selection. Historical replay, not contemporaneously logged predictions.",
+  "models": {
+    "xgboost": {
+      "version": "9e515bcdafd1eb0d1845f25b2da736aa0d7bc7ef8ba477a5fd8709c75b120025",
+      "fit_dates": {
+        "train": {
+          "label_end": "2023-12-04T00:00:00-05:00",
+          "origin_end": "2023-11-27T00:00:00-05:00",
+          "origin_start": "2012-10-16T00:00:00-04:00",
+          "samples": 2796
+        },
+        "validation": {
+          "label_end": "2024-12-02T00:00:00-05:00",
+          "origin_end": "2024-11-22T00:00:00-05:00",
+          "origin_start": "2023-12-05T00:00:00-05:00",
+          "samples": 245
+        }
+      },
+      "evaluation": {
+        "status": "ready",
+        "samples": 437,
+        "pending_samples": 5,
+        "available_after": "2024-12-02T05:00:00+00:00",
+        "horizon": 5,
+        "metrics": {
+          "accuracy": 0.5194508009153318,
+          "balanced_accuracy": 0.5067757499475561,
+          "precision": 0.5235457063711911,
+          "recall": 0.8325991189427313,
+          "f1": 0.6428571428571429,
+          "roc_auc": 0.49899307740717425,
+          "pr_auc": 0.5320690319417802,
+          "brier_score": 0.24968993437129525,
+          "log_loss": 0.6925262784340133,
+          "confusion_matrix": [
+            [
+              38,
+              172
+            ],
+            [
+              38,
+              189
+            ]
+          ],
+          "decision_threshold": 0.5,
+          "pr_auc_definition": "average_precision (non-trapezoidal)",
+          "directional_accuracy": null
+        },
+        "note": "Retrospective frozen-model diagnostics after validation; overlapping outcomes are dependent. Not a live forecast track record or evidence of future accuracy.",
+        "origin_start": "2024-12-03T05:00:00+00:00",
+        "origin_end": "2026-09-01T04:00:00+00:00",
+        "outcome_end": "2026-09-09T04:00:00+00:00",
+        "baseline": {
+          "name": "Always predict the return event",
+          "accuracy": 0.5194508009153318
+        },
+        "event_frequency": 0.5194508009153318
+      }
+    },
+    "xgboost_regressor": {
+      "version": "a6d2f996c11f02e3ffb16965648d2bbfdfdb1f11e29351ddaaff1a94d3a289e3",
+      "fit_dates": {
+        "train": {
+          "label_end": "2022-04-08T00:00:00-04:00",
+          "origin_end": "2022-04-01T00:00:00-04:00",
+          "origin_start": "2012-10-16T00:00:00-04:00",
+          "samples": 2381
+        },
+        "validation": {
+          "label_end": "2024-06-25T00:00:00-04:00",
+          "origin_end": "2024-06-17T00:00:00-04:00",
+          "origin_start": "2022-04-11T00:00:00-04:00",
+          "samples": 549
+        }
+      },
+      "evaluation": {
+        "status": "ready",
+        "samples": 548,
+        "pending_samples": 5,
+        "available_after": "2024-06-25T04:00:00+00:00",
+        "horizon": 5,
+        "metrics": {
+          "price_mae": 7.569735761038062,
+          "price_rmse": 9.898156724784167,
+          "price_mape_percent": 3.0924978252881425,
+          "log_return_mae": 0.030952013486922676,
+          "directional_accuracy": 0.49452554744525545
+        },
+        "note": "Retrospective frozen-model diagnostics after validation; overlapping outcomes are dependent. Not a live forecast track record or evidence of future accuracy.",
+        "origin_start": "2024-06-26T04:00:00+00:00",
+        "origin_end": "2026-09-01T04:00:00+00:00",
+        "outcome_end": "2026-09-09T04:00:00+00:00",
+        "baseline": {
+          "name": "Unchanged Close (zero return)",
+          "price_mae": 7.605317442956624,
+          "price_rmse": 9.96805067864074,
+          "price_mape_percent": 3.1160865519974443
+        },
+        "beats_baseline_mae": true
+      }
+    }
+  }
+}

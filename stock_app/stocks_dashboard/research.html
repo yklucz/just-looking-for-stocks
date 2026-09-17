@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f6f3">
+  <title>Research — Just Looking for Stocks</title>
+  <script src="/preferences.js"></script>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/research.css">
+</head>
+<body>
+  <a class="skip-link" href="#research-workspace">Skip to research workspace</a>
+  <div class="page research-page">
+    <header class="masthead">
+      <a class="brand" href="/" aria-label="Just Looking for Stocks home"><span class="brand-mark" aria-hidden="true">jl.</span><span>Just looking<br>for stocks</span></a>
+      <nav aria-label="Workspace"><a href="/">Market notebook</a><a href="/research" aria-current="page">Research</a></nav>
+    </header>
+    <main id="research-workspace">
+      <section class="intro" aria-labelledby="research-title">
+        <div><p class="eyebrow">Evidence before expectations</p><h1 id="research-title">Research notebook<span class="title-dot">.</span></h1><p class="intro-copy">Follow the data, compare experiments, and review forecasts as outcomes arrive.</p></div>
+      </section>
+      <details class="research-guide"><summary>How to read the evidence</summary><div>
+        <p><strong>Historical replay</strong> tests earlier dates using a saved model. It helps inspect behavior, but is not a record of forecasts issued in real time.</p>
+        <p><strong>Prospective forecasts</strong> are recorded when issued. Their outcomes stay pending until the required market data arrives. Missing or corrected data is labeled separately.</p>
+        <p><strong>A candidate is not a proven advantage.</strong> Missing metrics or too little baseline evidence do not establish an edge. Shadow models collect evidence; activation is a separate, manual decision.</p>
+        <p><strong>Fixed universe bias:</strong> testing only today's chosen stocks leaves out companies that disappeared or were never selected. Results may not represent the wider market.</p>
+      </div></details>
+      <form id="filters" class="research-filters" aria-label="Filter research records">
+        <label for="symbol">Ticker<input id="symbol" name="symbol" placeholder="All tickers" maxlength="20" autocomplete="off"></label>
+        <label for="model-id">Model ID<input id="model-id" name="model_id" placeholder="All models" autocomplete="off"></label>
+        <label for="evaluation-kind">Evaluation kind<select id="evaluation-kind" name="kind"><option value="">All kinds</option><option value="historical_replay">Historical replay</option><option value="prospective">Prospective</option></select></label>
+        <label for="period-from">Period from<input id="period-from" name="from" type="date"></label>
+        <label for="period-to">Period to<input id="period-to" name="to" type="date"></label>
+        <button type="submit" class="primary">Apply filters</button>
+      </form>
+      <p class="filter-note">Period applies to Experiments and Forecast history. Model and evaluation kind apply to forecasts. Ticker applies to every tab.</p>
+      <div class="research-tabs" role="tablist" aria-label="Research collections">
+        <button id="tab-datasets" role="tab" type="button" aria-selected="true" aria-controls="records" tabindex="0">Data</button>
+        <button id="tab-jobs" role="tab" type="button" aria-selected="false" aria-controls="records" tabindex="-1">Experiments</button>
+        <button id="tab-models" role="tab" type="button" aria-selected="false" aria-controls="records" tabindex="-1">Models</button>
+        <button id="tab-forecasts" role="tab" type="button" aria-selected="false" aria-controls="records" tabindex="-1">Forecast history</button>
+      </div>
+      <div class="collection-toolbar"><p id="record-count">Loading records…</p><div><button id="refresh" type="button">Refresh</button><button id="download-csv" type="button" disabled>Download CSV</button><button id="download-json" type="button" disabled>Download JSON</button></div></div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p id="error" role="alert" class="error" hidden></p>
+      <section id="records" class="research-records" role="tabpanel" aria-labelledby="tab-datasets" tabindex="0"></section>
+      <section class="research-job" aria-labelledby="new-job-title">
+        <div><p class="eyebrow">Next question</p><h2 id="new-job-title">Start a research job</h2><p>Jobs run in the background. Review their progress and reports in Experiments.</p></div>
+        <form id="job-form">
+          <label for="job-symbol">Ticker<input id="job-symbol" name="symbol" value="AAPL" maxlength="20" required autocomplete="off"></label>
+          <label for="job-kind">Job<select id="job-kind" name="kind"><option value="refresh">Refresh data</option><option value="experiment">Run experiment</option><option value="forecast">Issue forecast</option></select></label>
+          <label for="job-task">Prediction task<select id="job-task" name="task"><option value="binary">Direction (binary)</option><option value="regression">Return (regression)</option></select></label>
+          <button id="job-submit" type="submit" class="primary">Start job</button>
+        </form>
+      </section>
+      <p id="action-status" role="status" aria-live="polite"></p>
+    </main>
+    <footer><span>Just Looking for Stocks</span><span>Research evidence. No promise of forecast performance.</span></footer>
+  </div>
+  <script type="module" src="/research.js"></script>
+</body>
+</html>

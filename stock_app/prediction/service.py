@@ -422,6 +422,7 @@ def _run_inference(
     float,
     Any,
     pd.Timestamp,
+    pd.DataFrame,
 ]:
     history, local_clock = (
         _completed_history(
@@ -462,6 +463,7 @@ def _run_inference(
         probability,
         origin,
         local_clock,
+        history,
     )
 
 
@@ -639,6 +641,7 @@ def predict(
             probability,
             origin,
             local_clock,
+            inference_history,
         ) = _run_inference(
             ticker,
             candidate,
@@ -661,7 +664,7 @@ def predict(
             str(exc),
         ) from exc
 
-    return _prediction_response(
+    response = _prediction_response(
         ticker=ticker,
         model=model,
         version=version,
@@ -672,3 +675,12 @@ def predict(
         origin=origin,
         probability=probability,
     )
+    if now is None and manifest is None:
+        try:
+            from ..research.inference import record_legacy_inference
+            issued = record_legacy_inference(ticker, version, inference_history, response)
+            response.update(forecast_id=issued['id'], evaluation_kind=issued['kind'], recording_status='recorded')
+        except (ValueError, KeyError, OSError) as exc:
+            logger.warning('Forecast recording unavailable: %s', exc)
+            response.update(recording_status='unavailable', recording_error=str(exc))
+    return response

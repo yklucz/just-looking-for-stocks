@@ -1,0 +1,89 @@
+{
+  "ticker": "AAPL",
+  "generated_at": "2026-09-14T01:12:26.643345+00:00",
+  "probability_version": "9e515bcdafd1eb0d1845f25b2da736aa0d7bc7ef8ba477a5fd8709c75b120025",
+  "forecast": {
+    "estimated_price": 331.95722533504755,
+    "horizon": 5,
+    "label": "Estimated price from predicted log return",
+    "model_version": "a6d2f996c11f02e3ffb16965648d2bbfdfdb1f11e29351ddaaff1a94d3a289e3",
+    "note": "Dashed connector joins the observed close to one horizon estimate; intermediate prices are not predicted. This regressor has not established out-of-sample economic value.",
+    "origin": "2026-09-11T00:00:00-04:00",
+    "origin_close": 332.2699890136719,
+    "predicted_log_return": -0.0009417370893061161
+  },
+  "forecast_status": "ready",
+  "evaluation": {
+    "classification": {
+      "available_after": "2024-12-02T05:00:00+00:00",
+      "baseline": {
+        "accuracy": 0.5216400911161732,
+        "name": "Always predict the return event"
+      },
+      "event_frequency": 0.5216400911161732,
+      "horizon": 5,
+      "metrics": {
+        "accuracy": 0.5193621867881549,
+        "balanced_accuracy": 0.5053233520482429,
+        "brier_score": 0.2496894361739023,
+        "confusion_matrix": [
+          [
+            38,
+            172
+          ],
+          [
+            39,
+            190
+          ]
+        ],
+        "decision_threshold": 0.5,
+        "directional_accuracy": null,
+        "f1": 0.6429780033840947,
+        "log_loss": 0.692525285532402,
+        "pr_auc": 0.5324317873011482,
+        "pr_auc_definition": "average_precision (non-trapezoidal)",
+        "precision": 0.5248618784530387,
+        "recall": 0.8296943231441049,
+        "roc_auc": 0.49630900395092536
+      },
+      "note": "Retrospective frozen-model diagnostics after validation; overlapping outcomes are dependent. Not a live forecast track record or evidence of future accuracy.",
+      "origin_end": "2026-09-03T00:00:00-04:00",
+      "origin_start": "2024-12-03T00:00:00-05:00",
+      "outcome_end": "2026-09-11T00:00:00-04:00",
+      "pending_samples": 5,
+      "samples": 439,
+      "status": "ready"
+    },
+    "regression": {
+      "available_after": "2024-06-25T04:00:00+00:00",
+      "baseline": {
+        "name": "Unchanged Close (zero return)",
+        "price_mae": 7.587970525568185,
+        "price_mape_percent": 3.107873201676411,
+        "price_rmse": 9.951653014034745
+      },
+      "beats_baseline_mae": true,
+      "horizon": 5,
+      "metrics": {
+        "directional_accuracy": 0.49272727272727274,
+        "log_return_mae": 0.030874222719272433,
+        "price_mae": 7.553636039919352,
+        "price_mape_percent": 3.0847095703757854,
+        "price_rmse": 9.882237486283504
+      },
+      "note": "Retrospective frozen-model diagnostics after validation; overlapping outcomes are dependent. Not a live forecast track record or evidence of future accuracy.",
+      "origin_end": "2026-09-03T00:00:00-04:00",
+      "origin_start": "2024-06-26T00:00:00-04:00",
+      "outcome_end": "2026-09-11T00:00:00-04:00",
+      "pending_samples": 5,
+      "samples": 550,
+      "status": "ready"
+    }
+  },
+  "quote": {
+    "symbol": "AAPL",
+    "currentPrice": 332.27,
+    "quoteTimestamp": "2026-09-11T20:00:01+00:00"
+  },
+  "evidence_note": "Normal restarted Flask API using downloaded Yahoo history through 2026-09-11; captured 2026-09-14. A snapshot of retrospective diagnostics, not a prospective record. Full market input snapshot is not pinned by this response."
+}

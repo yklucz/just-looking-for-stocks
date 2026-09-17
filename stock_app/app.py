@@ -287,10 +287,13 @@ def api_predict():
     try:
         ticker = find_ticker(ticker_input)
 
-        result = predict(
-            ticker,
-            model=model,
-        )
+        from .research.inference import prediction_response
+        try:
+            result = prediction_response(ticker) if model == 'xgboost' else None
+        except (ValueError, KeyError, OSError, RuntimeError) as exc:
+            raise PredictionError('PREDICTION_UNAVAILABLE', str(exc)) from exc
+        if result is None:
+            result = predict(ticker, model=model)
 
         return jsonify(result)
 
@@ -323,7 +326,15 @@ def api_prediction_chart():
     if not ticker_input:
         return jsonify({"error": "ticker is required", "code": "INVALID_REQUEST"}), 400
     try:
-        return jsonify(prediction_chart(find_ticker(ticker_input)))
+        ticker = find_ticker(ticker_input)
+        from .research.inference import chart_response, active_prediction
+        try:
+            result = prediction_chart(ticker)
+        except PredictionError:
+            if active_prediction(ticker) is None and active_prediction(ticker, 'regression') is None:
+                raise
+            result = None
+        return jsonify(chart_response(ticker, result))
     except PredictionError as exc:
         return jsonify({'error': str(exc), 'code': exc.code}), exc.status
     except ValueError as exc:
@@ -480,6 +491,15 @@ def add_response_headers(response):
 # ---------------------------------------------------------------------------
 
 
+from .research.api import api as research_api
+app.register_blueprint(research_api)
+
+
+@app.get('/research')
+def research_page():
+    return send_from_directory(STATIC_DIR, 'research.html')
+
+
 if __name__ == "__main__":
     port = int(
         os.getenv(
@@ -501,6 +521,9 @@ if __name__ == "__main__":
         "127.0.0.1",
     )
 
+    if os.environ.get('STOCK_RESEARCH_SCHEDULE', '1') == '1':
+        from .research.runtime import get_runtime
+        get_runtime().start()
     app.run(
         host=host,
         port=port,
