@@ -202,6 +202,10 @@ class _Checkpoints:
             raise _Stopped('paused')
 
     def fit(self, key, fit):
+        from .registry_execution import checkpoint_call
+        return checkpoint_call(self, key, lambda: self._fit(key, fit))
+
+    def _fit(self, key, fit):
         self.check()
         path = self.output / 'checkpoints' / (key + '.joblib')
         checksum = path.with_suffix('.sha256')
@@ -323,6 +327,8 @@ def _selection(split, frames, target, valid, config, task, checkpoints, prefix):
                 info = {'feature_set': feature_set, 'window': window, 'setting': si,
                         'parameters': settings, 'validation_loss': loss,
                         'best_iteration': int(getattr(model, 'best_iteration', config.n_estimators-1))}
+                from .registry_execution import record_selection
+                record_selection(f'{prefix}-{feature_set}-w{wi}-s{si}', info)
                 trials.append(info)
                 if best is None or loss < best[0]:
                     best = loss, info, model, tr
@@ -466,6 +472,10 @@ def _evaluate_fold(number, split, frames, target, valid, history, config, task, 
     return selected
 
 
+from stock_app.research.registry_workflows import registered_workflow
+
+
+@registered_workflow
 def enrich_feature_comparison(history, *, output, contexts=None, cancelled=None, time_budget=7200):
     """Write a versioned addendum to a completed run without changing its artifacts.
 
@@ -562,6 +572,7 @@ def _candidate(frames, target, valid, history, config, task, fingerprints, check
     return dict(metadata, path=str(path.resolve()), artifact_sha256=checksum)
 
 
+@registered_workflow
 def run_gru_challenger(history, frames, valid, target, config, checkpoints, gru_config=None):
     """Manual fixed GRU benchmark on purged outer blocks; never promoted."""
     from ..config import GRUConfig
@@ -601,6 +612,10 @@ def run_gru_challenger(history, frames, valid, target, config, checkpoints, gru_
             'note': 'Fixed baseline-feature GRU challenger; origins listed; never automatically promoted.'}
 
 
+from .registry_execution import registered_candidate
+
+
+@registered_candidate
 def run_experiment(history, *, ticker, output, contexts=None, feature_sets=('baseline', 'context'),
                    task='binary', cancelled=None, time_budget=7200, include_gru=False, config=None):
     """Run/checkpoint all tabular fits; resume only with identical data/config.

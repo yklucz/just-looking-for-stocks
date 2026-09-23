@@ -297,7 +297,7 @@ node scripts/test_chart_data.mjs
 node scripts/test_research_frontend.mjs
 ```
 
-The Python suite has 343 passing tests. The frontend checks cover saved preferences, chart switching, in-place refresh, failed refreshes, candidate training, Research tabs and exports. Chart checks cover future spacing, forecast anchors, Current-price behavior, optional ranges, viewport continuity and OHLC drawing. See [research verification](docs/research-verification.md) for the separate offline, live-provider and responsive-browser evidence, and [regression testing](docs/research-bugfix-verification.md) for the latest failure-path fixes and checks.
+The Python suite has 684 passing tests in the latest local verification. The frontend checks cover saved preferences, chart switching, in-place refresh, failed refreshes, candidate training, Research tabs and exports. Chart checks cover future spacing, forecast anchors, Current-price behavior, optional ranges, viewport continuity and OHLC drawing. See [research verification](docs/research-verification.md) for the separate offline, live-provider and responsive-browser evidence, [regression testing](docs/research-bugfix-verification.md) for the failure-path checks, and the phase-specific verification documents for the operational, forecast-ledger, registry, integrity, and point-in-time additions.
 
 ## Project layout
 

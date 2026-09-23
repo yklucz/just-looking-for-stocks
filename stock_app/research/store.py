@@ -34,11 +34,20 @@ class ResearchStore:
                     symbol TEXT, task TEXT, model_id TEXT NOT NULL, PRIMARY KEY(symbol,task));
                 PRAGMA user_version=1;
             ''')
+            from .forecast_store import create_schema
+            create_schema(db)
+            from .registry_schema import create_schema as create_registry_schema
+            create_registry_schema(db)
+            from .integrity_schema import create_schema as create_integrity_schema
+            create_integrity_schema(db)
+            from .pit.schema import create_schema as create_pit_schema
+            create_pit_schema(db)
 
     @contextmanager
     def connection(self):
         db = sqlite3.connect(self.path, timeout=30)
         db.row_factory = sqlite3.Row
+        db.execute('PRAGMA foreign_keys=ON')
         try:
             with db:
                 yield db
@@ -49,6 +58,8 @@ class ResearchStore:
     def _put(db, kind, value):
         if kind not in KINDS:
             raise ValueError('Unknown record kind')
+        if kind == 'forecasts' and str(value.get('id', '')).startswith('fc-'):
+            raise ValueError('Canonical forecasts must be written through the ledger')
         record = dict(value)
         record.setdefault('id', uuid4().hex)
         record.setdefault('created_at', utcnow())
@@ -70,6 +81,9 @@ class ResearchStore:
 
     @staticmethod
     def _get(db, kind, identity):
+        if kind == 'forecasts' and str(identity).startswith('fc-'):
+            from .forecast_store import get
+            return get(db, identity)
         row = db.execute('SELECT document FROM records WHERE kind=? AND id=?', (kind, identity)).fetchone()
         if row is None:
             raise KeyError(identity)
@@ -77,16 +91,25 @@ class ResearchStore:
 
     def list(self, kind, *, symbol=None, model_id=None, state=None):
         query, args = 'SELECT document FROM records WHERE kind=?', [kind]
+        if kind == 'forecasts':
+            query += ' AND NOT EXISTS (SELECT 1 FROM forecast_migration m WHERE m.legacy_id=records.id)'
         for column, value in [('symbol', symbol), ('model_id', model_id), ('state', state)]:
             if value:
                 query += f' AND {column}=?'
                 args.append(value)
         with self.connection() as db:
-            return [json.loads(row[0]) for row in db.execute(query + ' ORDER BY created_at DESC,id', args)]
+            legacy = [json.loads(row[0]) for row in db.execute(query + ' ORDER BY created_at DESC,id', args)]
+            if kind == 'forecasts':
+                from .forecast_store import list_issuances
+                return list_issuances(db, symbol=symbol, model_id=model_id, state=state) + legacy
+            return legacy
 
     def update(self, kind, identity, **changes):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            if kind == 'forecasts' and str(identity).startswith('fc-'):
+                from .forecast_store import update_evaluation
+                return update_evaluation(db, identity, changes)
             value = self._get(db, kind, identity)
             value.update(changes)
             return self._put(db, kind, value)
@@ -114,7 +137,8 @@ class ResearchStore:
 
     def recover_jobs(self):
         for job in self.list('jobs', state='running'):
-            self.update('jobs', job['id'], state='queued', interrupted=True)
+            if not job['id'].startswith('operational-'):
+                self.update('jobs', job['id'], state='queued', interrupted=True)
         for job in self.list('jobs', state='cancelling'):
             self.update('jobs', job['id'], state='cancelled')
 

@@ -14,6 +14,10 @@ def model_partition(model, dataset, name: str):
     return SequenceInput(history, origins, length, X if name == 'train' else None), y.loc[origins]
 
 
+from stock_app.research.registry_workflows import observed_fit
+
+
+@observed_fit
 def fit_partitioned(model, dataset):
     X, y = model_partition(model, dataset, 'train')
     if getattr(model, 'uses_validation', False):

@@ -839,6 +839,10 @@ def _build_summary(
     }
 
 
+from stock_app.research.registry_workflows import registered_workflow
+
+
+@registered_workflow
 def run_walk_forward(
     history: pd.DataFrame,
     ticker: str,

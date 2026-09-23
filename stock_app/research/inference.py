@@ -84,13 +84,20 @@ def active_prediction(ticker, task='binary'):
     if model is None or model.get('metadata', {}).get('legacy'):
         return None
     history, contexts, mapping = runtime.inputs(ticker)
-    payload = model_payload(model, history, contexts)
-    payload['data_freshness'] = history.attrs.get('data_freshness', {})
-    from .ledger import issue_forecast
+    from .ledger import cached_forecast, issue_forecast
     snapshot = hashlib.sha256(json.dumps(mapping, sort_keys=True).encode()).hexdigest()
-    issued = issue_forecast(runtime.store, symbol=ticker, model_id=model['id'], snapshot_id=snapshot,
-                            origin=payload['origin_time'], payload={**payload, 'snapshots': mapping})
+    issued = cached_forecast(runtime.store, model, symbol=ticker, snapshot_id=snapshot,
+                             origin=history.index[-1], snapshots=mapping)
+    if issued is None:
+        payload = model_payload(model, history, contexts)
+        issued = issue_forecast(runtime.store, symbol=ticker, model_id=model['id'], snapshot_id=snapshot,
+                                origin=payload['origin_time'], horizon=payload.get('horizon', 5),
+                                payload={**payload, 'snapshots': mapping})
+    else:
+        payload = dict(issued['payload'], origin_time=str(history.index[-1]))
+    payload['data_freshness'] = history.attrs.get('data_freshness', {})
     payload['forecast_id'] = issued['id']
+    payload['revision_id'] = issued['revision_id']
     payload['evaluation_kind'] = issued['kind']
     return model, history, payload
 

@@ -25,8 +25,25 @@ def replay_experiment(runtime, job_id, output):
 
 
 def main():
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == 'data':
+        from .pit.cli import main as data_main
+        return data_main(sys.argv[2:])
+    if len(sys.argv) > 1 and sys.argv[1] == 'integrity':
+        from .integrity_cli import main as integrity_main
+        return integrity_main(sys.argv[2:])
+    if len(sys.argv) > 1 and sys.argv[1] == 'registry':
+        from .registry_cli import main as registry_main
+        return registry_main(sys.argv[2:])
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
+    for name in ('forecast-audit', 'migrate-forecasts', 'forecast-revisions', 'forecast-legacy', 'forecast-replay'):
+        command = sub.add_parser(name)
+        command.add_argument('--database', type=Path)
+        if name in {'forecast-revisions', 'forecast-replay'}:
+            command.add_argument('issuance_id')
+        if name == 'forecast-replay':
+            command.add_argument('revision_id')
     for name in ('refresh', 'experiment', 'forecast', 'company-context'):
         command = sub.add_parser(name)
         command.add_argument('--symbol', required=True)
@@ -46,13 +63,24 @@ def main():
     command = sub.add_parser('universe')
     command.add_argument('symbols', nargs='+')
     args = parser.parse_args()
+    if args.command.startswith('forecast-') or args.command == 'migrate-forecasts':
+        from .forecast_admin import run
+        result = run(args)
+        print(json.dumps(result, indent=2, allow_nan=False))
+        return int(result.get('status') in {'invalid', 'migration_required', 'reconciliation_required', 'busy'}
+                   or result.get('matches') is False)
     runtime = get_runtime()
     if args.command == 'backup':
         result = {'backup': str(runtime.store.backup(args.destination))}
     elif args.command == 'replay':
         result = replay_experiment(runtime, args.job_id, args.output)
     elif args.command == 'export':
-        result = runtime.store.list(args.kind, symbol=args.symbol)
+        if args.kind == 'forecasts':
+            from .forecast_store import list_issuances
+            with runtime.store.connection() as db:
+                result = list_issuances(db, symbol=args.symbol)
+        else:
+            result = runtime.store.list(args.kind, symbol=args.symbol)
     elif args.command == 'universe':
         from .config import SYMBOLS
         symbols = list(dict.fromkeys(symbol.upper() for symbol in args.symbols))

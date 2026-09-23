@@ -37,8 +37,14 @@ def records(kind):
     if kind not in {'datasets', 'jobs', 'models', 'forecasts', 'events'}:
         raise KeyError(kind)
     engine = runtime()
-    items = engine.store.list(kind, symbol=request.args.get('symbol') or request.args.get('ticker'),
-                              model_id=request.args.get('model_id'))
+    filters = {'symbol': request.args.get('symbol') or request.args.get('ticker'),
+               'model_id': request.args.get('model_id')}
+    if kind == 'forecasts':
+        from .forecast_store import list_issuances
+        with engine.store.connection() as db:
+            items = list_issuances(db, **filters)
+    else:
+        items = engine.store.list(kind, **filters)
     if kind == 'datasets':
         import pandas as pd
         from .calendar import latest_completed_session
@@ -102,6 +108,21 @@ def records(kind):
         return Response(buffer.getvalue(), mimetype='text/csv', headers={
             'Content-Disposition': f'attachment; filename="{kind}.csv"'})
     return jsonify(items=items)
+
+
+@api.get('/forecasts/<identity>/revisions')
+def forecast_revisions(identity):
+    from .forecast_store import get, revisions
+    with get_runtime().store.connection() as db:
+        get(db, identity)
+        return jsonify(items=revisions(db, identity))
+
+
+@api.get('/forecast-ledger/audit')
+def forecast_audit():
+    from .forecast_audit import audit_forecasts
+    from .forecast_admin import database_path
+    return jsonify(audit_forecasts(database_path()))
 
 
 @api.get('/summary')
@@ -188,3 +209,94 @@ def import_events():
         db.execute('BEGIN IMMEDIATE')
         items = [store._put(db, 'events', row) for row in rows]
     return jsonify(items=items), 201
+
+
+@api.get('/registry/audit')
+def registry_audit():
+    from .registry_admin import audit
+    return jsonify(audit(_registry_path()))
+
+
+def _registry_path():
+    import os
+    from pathlib import Path
+    return Path(os.environ.get('STOCK_RESEARCH_ROOT', Path(__file__).resolve().parents[2] / 'artifacts/research')) / 'research.sqlite3'
+
+
+@api.get('/registry/<kind>')
+def registry_records(kind):
+    from .registry_cli import read_rows
+    return jsonify(read_rows(_registry_path(), 'runs' if kind == 'history' else kind))
+
+
+@api.get('/registry/<kind>/<identity>')
+def registry_record(kind, identity):
+    from .registry_cli import read_rows
+    return jsonify(read_rows(_registry_path(), kind, identity))
+
+
+@api.get('/integrity/runs/<run_id>/evidence')
+def integrity_evidence(run_id):
+    from .integrity import get_evidence
+    return jsonify(get_evidence(_registry_path(), run_id))
+
+
+@api.get('/integrity/runs/<run_id>/verification')
+def integrity_verification(run_id):
+    from .integrity import verify_run
+    return jsonify(verify_run(_registry_path(), run_id, request.args.get('depth', 'metadata')))
+
+
+@api.get('/integrity/runs/<run_id>/reproductions')
+def integrity_reproductions(run_id):
+    from .integrity_replay import reproduction_history
+    return jsonify(reproduction_history(_registry_path(), run_id))
+
+
+@api.get('/integrity/cases')
+@api.get('/integrity/cases/<identity>')
+def integrity_cases(identity=None):
+    from .integrity_reconcile import list_cases
+    return jsonify(list_cases(_registry_path(), identity))
+
+
+@api.get('/integrity/audit')
+def integrity_audit():
+    from .integrity_audit import audit_integrity
+    return jsonify(audit_integrity(_registry_path(), depth=request.args.get('depth', 'metadata')))
+
+
+@api.get('/pit/sources')
+def pit_sources():
+    from .pit.store import list_rows
+    return jsonify(list_rows(_registry_path(), 'sources'))
+
+
+@api.get('/pit/resolve/<value>')
+def pit_resolve(value):
+    from .pit.store import resolve_identifier
+    return jsonify(resolve_identifier(_registry_path(), value, namespace=request.args.get('namespace','ticker'), scope=request.args.get('scope'), on_date=request.args.get('on_date')))
+
+
+@api.get('/pit/identities/<identity>')
+def pit_identity(identity):
+    from .pit.store import get, list_rows
+    return jsonify(identity=get(_registry_path(),'identities',identity), identifiers=[r for r in list_rows(_registry_path(),'identifiers') if r['identity_id']==identity])
+
+
+@api.get('/pit/events/<identity>')
+def pit_history(identity):
+    from .pit.store import get, list_rows
+    return jsonify(event=get(_registry_path(),'events',identity), revisions=[r for r in list_rows(_registry_path(),'revisions') if r['event_id']==identity])
+
+
+@api.get('/pit/as-of')
+def pit_as_of():
+    from .pit.query import get_as_of
+    return jsonify(get_as_of(_registry_path(),as_of=request.args.get('as_of'),strictness=request.args.get('strictness'),identity_id=request.args.get('identity_id'),data_type=request.args.get('data_type'),source_id=request.args.get('source_id')))
+
+
+@api.get('/pit/audit')
+def pit_audit():
+    from .pit.audit import audit
+    return jsonify(audit(_registry_path(),depth=request.args.get('depth','metadata'),as_of=request.args.get('as_of')))

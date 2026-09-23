@@ -30,7 +30,7 @@ def get_runtime():
 
 
 class ResearchRuntime:
-    def __init__(self, root):
+    def __init__(self, root, *, import_legacy=True):
         self.root = Path(root)
         self.store = ResearchStore(self.root / 'research.sqlite3')
         self.data = DataRepository(self.root / 'datasets')
@@ -43,7 +43,8 @@ class ResearchRuntime:
             self.store.put('settings', {'id': UNIVERSE_VERSION, 'market': 'SPY',
                                        'sector_mappings': SECTOR_ETFS, 'context_symbols': CONTEXT_SYMBOLS,
                                        'note': 'Fixed present-day universe; selection and survivorship bias apply'})
-        self.import_legacy()
+        if import_legacy:
+            self.import_legacy()
 
     def import_legacy(self):
         manifest = Path(os.environ.get('STOCK_MODEL_MANIFEST', ROOT / 'config/prediction_models.json'))
@@ -137,9 +138,9 @@ class ResearchRuntime:
     def _loop(self):
         while True:
             try:
-                if os.environ.get('STOCK_RESEARCH_SCHEDULE', '1') == '1':
-                    self.schedule()
-                jobs = self.store.list('jobs', state='queued')
+                # Recurring work is owned by stock_app.jobs, triggered externally.
+                jobs = [job for job in self.store.list('jobs', state='queued')
+                        if not job['id'].startswith('operational-')]
                 # Market refresh and issuance take precedence over new training.
                 jobs.sort(key=lambda job: (job['kind'] == 'experiment', job['created_at']))
                 if jobs:
@@ -220,23 +221,15 @@ class ResearchRuntime:
                 from .experiments import run_experiment
                 history, contexts, mapping = self.inputs(job['symbol'], job.get('snapshots'))
                 self.store.update('jobs', identity, snapshots=mapping)
-                result = run_experiment(history, ticker=job['symbol'], output=self.root / 'experiments' / identity,
-                                        contexts=contexts, task=job['parameters']['task'],
-                                        cancelled=lambda: self.store.get('jobs', identity)['state'] == 'cancelling',
-                                        include_gru=job['parameters'].get('include_gru', False))
-                if result.get('status') == 'completed' and result.get('candidate'):
-                    candidate = result['candidate']
-                    path = Path(candidate['path'] if isinstance(candidate, dict) else candidate)
-                    model_id = hashlib.sha256(path.read_bytes()).hexdigest()
-                    with self.store.connection() as db:
-                        db.execute('BEGIN IMMEDIATE')
-                        try:
-                            self.store._get(db, 'models', model_id)
-                        except KeyError:
-                            self.store._put(db, 'models', {'id': model_id, 'symbol': job['symbol'], 'task': job['parameters']['task'],
-                                              'state': 'candidate', 'artifact': str(path), 'artifact_sha256': model_id,
-                                              'metadata': {'job_id': identity, 'snapshots': mapping,
-                                                           'candidate': candidate, 'evaluation_kind': 'historical_replay'}})
+                from .registry import Registry
+                from .registry_execution import execute
+                result = execute(run_experiment, history, registry=Registry(self.store),
+                                 execution_key='job:' + identity, job_id=identity, snapshots=mapping,
+                                 origin='scheduled' if identity.startswith('operational-') else 'manual',
+                                 ticker=job['symbol'], output=self.root / 'experiments' / identity,
+                                 contexts=contexts, task=job['parameters']['task'],
+                                 cancelled=lambda: self.store.get('jobs', identity)['state'] == 'cancelling',
+                                 include_gru=job['parameters'].get('include_gru', False))
             state = result.get('status', 'completed') if isinstance(result, dict) else 'completed'
             if state not in {'paused', 'cancelled'}:
                 state = 'completed'
@@ -247,20 +240,25 @@ class ResearchRuntime:
             logger.exception('Research job %s failed', identity)
             return self.store.update('jobs', identity, state='failed', error=str(exc), finished_at=utcnow())
 
-    def issue_daily(self, symbol):
-        from .ledger import issue_forecast, resolve_forecasts
+    def issue_daily(self, symbol, *, snapshots=None):
+        from .ledger import cached_forecast, issue_forecast, resolve_forecasts
         from .inference import model_payload
-        history, contexts, mapping = self.inputs(symbol)
+        history, contexts, mapping = self.inputs(symbol, snapshots)
         snapshot = hashlib.sha256(json.dumps(mapping, sort_keys=True).encode()).hexdigest()
-        issued, errors = [], []
+        issued, revisions, errors = [], [], []
         models = [model for model in self.store.list('models', symbol=symbol) if model['state'] in {'active', 'shadow'}]
         for model in models:
             try:
-                payload = model_payload(model, history, contexts)
-                record = issue_forecast(self.store, symbol=symbol, model_id=model['id'], snapshot_id=snapshot,
-                                        origin=payload.pop('origin_time'), payload={**payload, 'snapshots': mapping})
+                record = cached_forecast(self.store, model, symbol=symbol, snapshot_id=snapshot,
+                                         origin=history.index[-1], snapshots=mapping)
+                if record is None:
+                    payload = model_payload(model, history, contexts)
+                    record = issue_forecast(self.store, symbol=symbol, model_id=model['id'], snapshot_id=snapshot,
+                                            origin=payload.pop('origin_time'), horizon=payload.get('horizon', 5),
+                                            payload={**payload, 'snapshots': mapping})
                 issued.append(record['id'])
+                revisions.append(record['revision_id'])
             except (ValueError, KeyError, RuntimeError, OSError) as exc:
                 errors.append({'model_id': model['id'], 'error': str(exc)})
         resolve_forecasts(self.store, symbol, history, snapshot_id=snapshot)
-        return {'issued': issued, 'errors': errors}
+        return {'issued': issued, 'revision_ids': revisions, 'errors': errors}

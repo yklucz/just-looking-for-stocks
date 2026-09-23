@@ -521,9 +521,6 @@ if __name__ == "__main__":
         "127.0.0.1",
     )
 
-    if os.environ.get('STOCK_RESEARCH_SCHEDULE', '1') == '1':
-        from .research.runtime import get_runtime
-        get_runtime().start()
     app.run(
         host=host,
         port=port,

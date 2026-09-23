@@ -137,6 +137,10 @@ def _hash_dataframe(frame: pd.DataFrame) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+from stock_app.research.registry_workflows import registered_workflow
+
+
+@registered_workflow
 def run_research(
     history: pd.DataFrame,
     ticker: str,

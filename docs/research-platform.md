@@ -8,8 +8,9 @@ completing a training job does not establish an accuracy advantage.
 
 Use Python **3.13.15** and the pinned requirements. Run
 `python -m stock_app.app`, then open `http://127.0.0.1:49152/research`.
-The supported local runtime is macOS/Linux. No broker, paid feed, cloud service,
-or external scheduler is required.
+The supported local runtime is macOS/Linux. No broker, paid feed or cloud service
+is required. Recurring execution uses an external trigger for the finite
+[`stock_app.jobs` CLI](operational-jobs.md), independent of Flask.
 
 `artifacts/research/research.sqlite3` stores versioned metadata, jobs, model
 lifecycle and forecast records. Immutable market CSVs and JSON manifests live
@@ -124,26 +125,32 @@ uses the simple baseline only. Manual activation remains required. Previously
 active versions can be restored with Rollback; failed validation cannot alter
 the active pointer. The original manifest and old model files remain unchanged.
 
-Issuance is idempotent by model/origin/input snapshot. On-time issuance means
+Issuance now uses a [canonical decision identity](canonical-forecast-ledger.md)
+independent of input snapshots. Input changes produce immutable child revisions;
+the first accepted revision remains authoritative for evaluation. On-time issuance means
 after the origin close and before the next session opens. Late/catch-up estimates
 are historical replays, not retrospective additions to the prospective record.
-Input revisions link to earlier forecasts. Corrected outcomes retain their
+Input revisions retain their lineage under the same issuance. Corrected outcomes retain their
 prior values. Outcomes use origin and target Close from one consistent adjusted
 snapshot, converted to the price basis recorded at issuance. Qualification uses
 the first issued forecast per origin and requires matched realized returns.
 
 ## Scheduling and APIs
 
-While the server runs, daily jobs refresh data after close plus 30 minutes and
-issue active/shadow forecasts. Monthly jobs train candidates while preserving
-the frozen shadow nomination and its evidence window. The worker catches up once on
-restart, deduplicates jobs and recovers interrupted fits. It cannot work while
-the computer/server is off. `STOCK_RESEARCH_SCHEDULE=0` disables automatic
-scheduling; manual jobs remain available.
+Run `python -m stock_app.jobs run-due` from an external scheduler for daily data
+refresh/forecast jobs and monthly candidate experiments. Flask's worker handles
+manual submissions only. Durable slots, attempt history, bounded retries,
+conservative partial-effect recovery, and source health are documented in
+[operational jobs](operational-jobs.md). Missed slots are recorded and coalesced
+to the latest eligible run; a powered-off computer still cannot execute work.
+`STOCK_RESEARCH_SCHEDULE` is superseded by enabling/disabling the external trigger.
+Use `python -m stock_app.jobs health` for freshness and runner warnings.
 
 Existing prediction/history endpoints are preserved. New endpoints:
 
 - `GET /api/research/datasets|jobs|models|forecasts|events`
+- `GET /api/research/forecasts/<id>/revisions` — immutable input revision history
+- `GET /api/research/forecast-ledger/audit` — read-only cardinality/integrity checks
 - `GET /api/research/summary` — latest per-symbol and equal-weight results
 - List filters: `symbol`, `model_id`, `kind`, `from`, `to`; `format=csv` exports
 - `POST /api/research/jobs` — `kind`, `symbol`, `task`, optional `include_gru`
@@ -173,3 +180,20 @@ cover calendar boundaries, adjustments, missing/corrupt inputs, causal context,
 purged evaluation, resume/integrity, actual estimator inference, prospective
 qualification, rollback, and API/UI behavior. Live-provider checks and initial
 research outcomes are recorded separately in `research-initial-results.md`.
+
+
+## Immutable research experiment registry (Phase 1)
+
+Candidate, replay, and scheduled experiment execution now passes through an immutable preregistration registry. Questions, falsifiable hypotheses, declared metric/spec contracts, parameter families, logical runs, numbered attempts, all terminal outcomes, and artifact provenance are retained in additive SQLite tables. Existing model computations, candidate lifecycle, and canonical forecast authority are unchanged.
+
+Use `python -m stock_app.research registry history` for all outcomes and `python -m stock_app.research registry audit` for read-only integrity checks. Existing candidate commands remain compatible. Ten historical experiment jobs were imported as explicitly non-preregistered legacy evidence, with ten verified candidate links and no original-record, active-binding, or artifact changes. See [the complete registry contract](research-experiment-registry.md) for typed registration/execution, API/CLI examples, replay, reconciliation, migration evidence, and limitations. Phase 1.5 adds [evidence review, verification-only reproduction, and explicit operator reconciliation](research-integrity.md). The research agent remains unimplemented.
+
+
+## Point-in-time foundation (Phase 2A)
+
+The additive [PIT data foundation](point-in-time-data.md) provides permanent internal
+source/entity/security/listing identities, immutable raw evidence and revisions,
+explicit cutoff/availability policies, offline SEC/ALFRED contracts and leakage
+checks. Use `python -m stock_app.research data audit` to inspect it. Existing Yahoo
+workflows and model bindings are unchanged; no live provider backfill, training
+consumer or historical PIT conversion has been introduced.
