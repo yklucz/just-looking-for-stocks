@@ -22,8 +22,8 @@ def _entity_cik(pit,entity_id,cik,source_id):
     if get(pit.store.path,'identities',entity_id)['kind']!='entity': raise ValueError('SEC filer must be an entity')
     if not str(cik).isdigit() or len(str(cik))>10: raise ValueError('Invalid CIK')
     normalized=str(cik).zfill(10)
-    from .store import list_rows
-    matches=[r for r in list_rows(pit.store.path,'identifiers') if r['namespace']=='cik' and r['value']==normalized]
+    from .store import resolve_identifier
+    matches=resolve_identifier(pit.store.path,normalized,namespace='cik')['matches']
     if not matches or any(r['identity_id']!=entity_id for r in matches):
         raise ValueError('Explicit unambiguous CIK/entity mapping required')
     return normalized

@@ -1,18 +1,29 @@
 """Explicit as-of selection and frozen query provenance. No latest-value API."""
 from ..forecast_identity import digest
-from .store import list_rows, get
+from .store import get
+from ..integrity import reader
+import json
 from .temporal import Strictness, instant, eligible
 
 
 def get_as_of(path,*,as_of,strictness,identity_id=None,data_type=None,source_id=None):
     cutoff=instant(as_of); mode=Strictness(strictness)
-    events=[e for e in list_rows(path,'events') if (identity_id is None or e['identity_id']==identity_id)
-            and (data_type is None or e['data_type']==data_type) and (source_id is None or e['source_id']==source_id)]
-    revisions=list_rows(path,'revisions'); selected=[]; excluded=[]; ambiguous=[]
+    filters=[]; args=[]
+    for column,value in (('identity_id',identity_id),('data_type',data_type),('source_id',source_id)):
+        if value is not None:
+            filters.append(column+'=?'); args.append(value)
+    with reader(path) as db:
+        events=[dict(r) for r in db.execute('SELECT * FROM pit_events'+(' WHERE '+' AND '.join(filters) if filters else ''),args)]
+        revisions=[]
+        for event in events:
+            for row in db.execute('SELECT * FROM pit_revisions WHERE event_id=?',(event['id'],)):
+                revision=dict(row); revision['document']=json.loads(revision['document']); revisions.append(revision)
+    grouped={}
+    for revision in revisions: grouped.setdefault(revision['event_id'],[]).append(revision)
+    selected=[]; excluded=[]; ambiguous=[]
     for event in events:
         candidates=[]
-        for r in revisions:
-            if r['event_id']!=event['id']: continue
+        for r in grouped.get(event['id'],[]):
             if eligible(r,cutoff,mode): candidates.append(r)
             else: excluded.append({'revision_id':r['id'],'reason':'Availability/cutoff/policy excludes this revision'})
         if not candidates: continue

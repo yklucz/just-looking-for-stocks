@@ -36,18 +36,20 @@ def immutable_bytes(root, content, suffix):
     fingerprint = sha256(content).hexdigest()
     path = root / (fingerprint + suffix)
     if not path.exists():
-        with tempfile.NamedTemporaryFile(dir=root, delete=False) as handle:
-            temporary = Path(handle.name)
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
+        temporary = None
         try:
+            with tempfile.NamedTemporaryFile(dir=root, delete=False) as handle:
+                temporary = Path(handle.name)
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
             try:
                 os.link(temporary, path)
             except FileExistsError:
                 pass
         finally:
-            temporary.unlink()
+            if temporary is not None:
+                temporary.unlink()
     if sha256(path.read_bytes()).hexdigest() != fingerprint:
         raise ValueError('Immutable registry artifact checksum mismatch')
     return {'path': str(path.resolve()), 'sha256': fingerprint}

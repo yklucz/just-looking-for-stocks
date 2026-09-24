@@ -16,7 +16,7 @@ additive migration and a read-only integrity audit; see the
 verified legacy import, and read-only audit; see [registry contract and verification](research-experiment-registry.md).
 The separately scoped Phase 1.5 evidence, reproducibility and reconciliation layer is implemented
 (2026-09-23); see [research integrity](research-integrity.md). The separately scoped Phase 2A [point-in-time foundation](point-in-time-data.md) is implemented
-(2026-09-23), with offline provider contracts and no live backfill. Phase 2B has not started.
+(2026-09-23), with offline provider contracts and no live backfill. Phase 2B [controlled collection](pit-provider-ingestion.md) is implemented (2026-09-24); offline verification is complete, live pilot is not executed because provider configuration is absent. Phase 2C has not started.
 The AI research agent remains unimplemented. External scheduler installation
 and live-provider verification are deployment steps, not completed local tests.
 

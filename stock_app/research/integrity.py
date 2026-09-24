@@ -170,8 +170,11 @@ def verify_run(path, run_id, depth='metadata', *, clock=utcnow):
     for name, entry in m['contracts'].items():
         add('contract:' + name, 'verified' if entry['value'] is not None and not legacy else 'unverifiable',
             'Contract is recorded; does not assert execution matched it' if not legacy else 'No historical preregistration asserted')
-    add('classification_threshold', 'not_applicable' if contract.get('task') == 'regression' else
-        'verified' if contract.get('target', {}).get('event_threshold') is not None else 'unverifiable', 'Task-specific target contract')
+    if contract.get('task') == 'regression':
+        threshold_status = 'not_applicable'
+    else:
+        threshold_status = 'verified' if contract.get('target', {}).get('event_threshold') is not None else 'unverifiable'
+    add('classification_threshold', threshold_status, 'Task-specific target contract')
     if spec and not legacy:
         check('spec.primary_metric', spec['primary_metric'] == contract.get('primary_metric'), 'Declared metric identity')
     attempts = {a['id']: a for a in m['attempts']}
@@ -340,7 +343,10 @@ def verify_run(path, run_id, depth='metadata', *, clock=utcnow):
             else:
                 add('forecast.cutoff:' + forecast['id'], 'unverifiable', 'Fitting cutoff unavailable')
     counts = dict(Counter(c['status'] for c in checks))
-    status = 'invalid' if counts.get('missing', 0) + counts.get('mismatch', 0) else 'incomplete' if counts.get('unverifiable') else 'verified'
+    if counts.get('missing', 0) + counts.get('mismatch', 0):
+        status = 'invalid'
+    else:
+        status = 'incomplete' if counts.get('unverifiable') else 'verified'
     certificate = {'version': VERSION, 'run_id': run_id, 'manifest_fingerprint': evidence['fingerprint'],
                    'depth': depth, 'status': status, 'checks': checks, 'counts': counts, 'timestamp': clock()}
     return {**certificate, 'fingerprint': digest(certificate)}

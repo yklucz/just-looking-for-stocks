@@ -63,6 +63,8 @@ def audit(path,*,depth='metadata',as_of=None):
         paths={str(Path(r['document']['path']).resolve()) for r in data['raw']}
         for file in (Path(path).parent/'pit-raw').glob('*'):
             if file.is_file() and str(file.resolve()) not in paths: add('orphan_raw_file',file.name,'No committed retrieval references these bytes','warning')
+    from .collection import findings
+    issues.extend(findings(path))
     duplicate_sources=len(data['sources'])-len({(s['provider'],s['feed']) for s in data['sources']})
     return {'status':'attention' if issues else 'ok','counts':{k:len(v) for k,v in data.items()},'depth':depth,'issues':issues,
             'availability':dict(Counter(r['availability_kind'] for r in data['revisions'])),

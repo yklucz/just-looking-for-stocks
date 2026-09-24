@@ -22,6 +22,9 @@ def registry(store):
         jobs.append(JobDefinition(f'forecast:{symbol}', 'forecast', symbol))
         for task in ('binary', 'regression'):
             jobs.append(JobDefinition(f'experiment:{symbol}:{task}', 'experiment', symbol, 'monthly', task))
+    if os.environ.get('PIT_ENABLE_REFRESH') == '1':
+        from stock_app.research.pit.collection_jobs import definitions
+        jobs.extend(definitions())
     return jobs
 
 
@@ -32,9 +35,11 @@ class JobService:
         self.runtime = ResearchRuntime(root, import_legacy=False)
         self.clock = clock
         self.downloader = downloader or self.download
+        from stock_app.research.pit.collection_jobs import refresh_handler
         self.runner = JobRunner(self.runtime, registry(self.runtime.store),
                                 {'refresh': self.refresh, 'forecast': self.forecast,
-                                 'experiment': self.experiment}, clock=clock)
+                                 'experiment': self.experiment,
+                                 'pit-refresh': refresh_handler(self.runtime.store, lambda: utc_timestamp(self.clock()))}, clock=clock)
 
     @staticmethod
     def download(symbol):

@@ -42,6 +42,8 @@ class ResearchStore:
             create_integrity_schema(db)
             from .pit.schema import create_schema as create_pit_schema
             create_pit_schema(db)
+            from .pit.collection_schema import create_schema as create_collection_schema
+            create_collection_schema(db)
 
     @contextmanager
     def connection(self):

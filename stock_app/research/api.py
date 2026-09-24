@@ -300,3 +300,21 @@ def pit_as_of():
 def pit_audit():
     from .pit.audit import audit
     return jsonify(audit(_registry_path(),depth=request.args.get('depth','metadata'),as_of=request.args.get('as_of')))
+
+
+@api.get('/pit/provider-status')
+def pit_provider_status():
+    from .pit.collection import status
+    return jsonify(status(_registry_path()))
+
+
+@api.get('/pit/coverage')
+def pit_coverage():
+    from .pit.collection import coverage
+    return jsonify(coverage(_registry_path()))
+
+
+@api.get('/pit/raw/<identity>')
+def pit_raw_metadata(identity):
+    from .pit.store import get
+    return jsonify(get(_registry_path(), 'raw', identity))

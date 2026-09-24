@@ -1,6 +1,5 @@
 """Typed immutable source evidence and permanent internal identities."""
-from hashlib import sha256
-from pathlib import Path
+import json
 
 from ..forecast_identity import canonical_json, digest
 from ..integrity import reader, rows
@@ -18,9 +17,14 @@ def list_rows(path,kind):
 
 
 def get(path,kind,identity):
-    value=next((r for r in list_rows(path,kind) if r['id']==identity),None)
-    if value is None:
+    if 'pit_'+kind not in TABLES:
+        raise ValueError('Unknown PIT entity')
+    with reader(path) as db:
+        row=db.execute('SELECT * FROM pit_'+kind+' WHERE id=?',(identity,)).fetchone()
+    if row is None:
         raise KeyError(identity)
+    value=dict(row)
+    value['document']=json.loads(value['document'])
     return value
 
 
@@ -122,7 +126,12 @@ class PITStore:
 def resolve_identifier(path,value,*,namespace='ticker',scope=None,on_date=None):
     value=value.strip().upper() if namespace=='ticker' else value.zfill(10) if namespace=='cik' else value
     when=day(on_date) if on_date else None
-    matches=[r for r in list_rows(path,'identifiers') if r['namespace']==namespace and r['value']==value and (scope is None or r['scope']==scope)]
+    with reader(path) as db:
+        query='SELECT * FROM pit_identifiers WHERE namespace=? AND value=?'
+        args=[namespace,value]
+        if scope is not None: query+=' AND scope=?'; args.append(scope)
+        matches=[dict(r) for r in db.execute(query,args)]
+    for row in matches: row['document']=json.loads(row['document'])
     known=[]; uncertain=[]
     for row in matches:
         if when:

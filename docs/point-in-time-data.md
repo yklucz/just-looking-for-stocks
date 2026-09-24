@@ -1,8 +1,10 @@
 # Point-in-time data foundation (Phase 2A)
 
-This is an additive, provider-neutral evidence foundation. It includes no network
-client, live backfill, new schedule, training consumer, forecast change, security
-master import or LLM. Yahoo prices/context retain their current-vintage semantics.
+This is an additive, provider-neutral evidence foundation. Phase 2A itself includes
+no network client. The separately scoped [Phase 2B collection pilot](pit-provider-ingestion.md)
+adds controlled provider transport and reparse (2026-09-24), with opt-in operational jobs.
+Neither phase adds a training consumer, forecast change, security-master import or LLM.
+Yahoo prices/context retain their current-vintage semantics.
 
 ## Existing path and leakage risks
 
@@ -274,9 +276,9 @@ missing/checksum-invalid raw evidence, temporal and lineage conflicts, overlappi
 or uncertain aliases, availability kinds, and optional future-known revision counts
 relative to an explicit cutoff. Future revisions are valid stored history; the count
 is not itself a leakage error. Default audit never contacts a provider or hashes
-files; artifact mode additionally verifies bytes/orphans. Current implementation
-uses bounded local-table scans despite as-of indexes; large backfills will need
-query-plan/pagination work before production scale.
+files; artifact mode additionally verifies bytes/orphans. Phase 2B adds indexed primary-ID/identifier reads and event-specific revision retrieval,
+plus page checkpoints. Unfiltered audit/coverage still scan the pilot universe; large
+backfills require further measured query-plan and capacity review.
 
 ## Migration, fixtures and limitations
 
@@ -296,7 +298,8 @@ coverage is claimed. Identifier corrections require new explicit evidence and
 review rather than guessing/deleting prior aliases. No automated retention/deletion
 or provider authentication/transport implementation is added.
 
-Phase 2B should separately authorize small controlled SEC/ALFRED ingestion pilots,
-real payload contract tests, declared User-Agent/rate limiting, secure API-key
-handling where required, pagination, staged backfill, evidence-backed identity
-mapping and point-in-time quality gates. It has not begun.
+Phase 2B is implemented as a separately controlled [provider ingestion pilot](pit-provider-ingestion.md).
+It retains the Phase 2A contracts, adds secure transport and bounded checkpointed collection,
+and leaves provider refresh disabled by default. Live validation was not executed because
+SEC/FRED configuration was unavailable; no live identities or data were seeded. See the
+[Phase 2B verification report](pit-provider-verification.md). Phase 2C has not begun.
